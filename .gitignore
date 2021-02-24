@@ -1,7 +1,7 @@
 # Created by .ignore support plugin (hsz.mobi)
 ### Python template
 # workplace
-.idea/workspace.xml
+.xml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
