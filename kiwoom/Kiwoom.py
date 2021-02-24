@@ -14,6 +14,7 @@ class Kiwoom(QAxWidget):
 		self.get_ocx_instance()  # OCX 방식을 파이썬에 사용할 수 있게 변환해 주는 함수
 		self.event_slots()  # 키움과 연결하기 위한 시그널 / 슬롯 모음
 		self.signal_login_commConnect()  # 로그인 요청 함수
+		self.get_account_info()
 	
 	def get_ocx_instance(self):
 		self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
@@ -33,3 +34,8 @@ class Kiwoom(QAxWidget):
 	
 	def trdata_slot(self, sCrNo, sRQName, sTrCode, sRecordName, sPrevNext):
 		print("TRDATA %s" % sRQName)
+		
+	def get_account_info(self):
+		account_list = self.dynamicCall("GetLoginInfo(QString)", "ACCNO")
+		self.account_num = account_list.split(';')[0]
+		print("계좌번호 %s" % self.account_num)
