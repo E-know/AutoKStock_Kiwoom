@@ -29,6 +29,7 @@ class Kiwoom(QAxWidget):
 		self.profit_rate = 0.0  # 손익비율
 		self.account_stock_dict = {}  # 주식 보유
 		self.stock_day_chart_dict = {}
+		self.stock_wait_dict = {}
 		
 		self.get_ocx_instance()  # OCX 방식을 파이썬에 사용할 수 있게 변환해 주는 함수
 		self.event_slots()  # 키움과 연결하기 위한 시그널 / 슬롯 모음
@@ -56,6 +57,7 @@ class Kiwoom(QAxWidget):
 	
 	def real_event_slot(self):
 		self.OnReceiveRealData.connect(self.realdata_slot)  # 실시간 이벤트 연결
+		self.OnReceiveChejanData.connect(self.chejan_slot)
 	
 	def signal_login_commConnect(self):
 		self.dynamicCall("CommConnect()")
@@ -80,6 +82,15 @@ class Kiwoom(QAxWidget):
 			self.isTime()
 		elif sRealType == "주식체결":
 			self.stockSigning()
+			
+	def chejan_slot(self, sGubun, nItemCnt, sFidList):
+		print("체결잔고 :", sGubun)
+		if int(sGubun) == 0:
+			account_num = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['계좌번호'])
+			sCode = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목코드'])[1:]
+			stock_name = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목명']).strip()
+			
+			print(account_num, sCode, stock_name)
 	
 	def get_account_info(self):
 		account_list = self.dynamicCall("GetLoginInfo(QString)", "ACCNO")
@@ -189,11 +200,11 @@ class Kiwoom(QAxWidget):
 		pass
 	
 	def buyStock(self, sCode, nQty, nPrice, sOrderNum=""):
-		if nPrice == 0:
-			order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매수", self.screen_buy_sell, self.account_num, 1, sCode, nQty, nPrice, '03', sOrderNum])
-		else:
-			order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매수", self.screen_buy_sell, self.account_num, 1, sCode, nQty, nPrice, '00', sOrderNum])
-		
+		#if nPrice == 0:
+		#	order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["신규매수", self.screen_buy_sell, self.account_num, 1, sCode, nQty, nPrice, '03', sOrderNum])
+		#else:
+		#	order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매수정정", self.screen_buy_sell, self.account_num, 5, sCode, nQty, nPrice, '00', sOrderNum])
+		order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["신규매수", self.screen_buy_sell, self.account_num, 1, sCode, nQty, nPrice, '00', sOrderNum])
 		if sOrderNum == "":
 			order_type = "신규매수"
 		else:
@@ -202,13 +213,13 @@ class Kiwoom(QAxWidget):
 		if order_success == 0:
 			print("[%s %s] 주문 성공" % (order_type, sCode))
 		else:
-			print("[%s|%s] 주문 실패" % (order_type, sCode))
+			print("[%s|%s] 주문 실패 Error Code : %d" % (order_type, sCode, order_success))
 	
 	def sellStock(self, sCode, nQty, nPrice, sOrderNum=""):
 		if nPrice == 0:
-			order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen_buy_sell, self.account_num, 2, sCode, nQty, nPrice, '03', sOrderNum])  # 시장가 신규 매도
+			order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["신규매도", self.screen_buy_sell, self.account_num, 2, sCode, nQty, nPrice, '03', sOrderNum])  # 시장가 신규 매도
 		else:
-			order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen_buy_sell, self.account_num, 2, sCode, nQty, nPrice, '00', sOrderNum])  # 지정가 신규 매도
+			order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도정정", self.screen_buy_sell, self.account_num, 2, sCode, nQty, nPrice, '00', sOrderNum])  # 지정가 신규 매도
 		
 		if sOrderNum == "":
 			order_type = "신규매도"
@@ -216,6 +227,6 @@ class Kiwoom(QAxWidget):
 			order_type = "매도정정"
 			
 		if order_success == 0:
-			print("[%s|%s] 주문 성공", order_type, sCode)
+			print("[%s|%s] 주문 성공" % (order_type, sCode))
 		else:
-			print("[%s|%s] 주문 실패", order_type, sCode)
+			print("[%s|%s] 주문 실패 Error Code : %d" % (order_type, sCode, order_success))
