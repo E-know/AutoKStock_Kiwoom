@@ -3,12 +3,16 @@ from PyQt5.QtCore import *
 from PyQt5 import QtCore
 from PyQt5.QtTest import *
 from config.kiwoomType import *
+from config.log_class import *
 
 
 class Kiwoom(QAxWidget):
 	def __init__(self):
 		super().__init__()
-		print("Kiwoom() class Start")
+		# print("Kiwoom() class Start")
+		
+		self.logging = Logging()
+		self.logging.logger.debug("Kiwoom() class Start")
 		
 		self.realType = RealType()
 		
@@ -54,6 +58,7 @@ class Kiwoom(QAxWidget):
 	def event_slots(self):
 		self.OnEventConnect.connect(self.login_slot)
 		self.OnReceiveTrData.connect(self.trdata_slot)
+		self.OnReceiveMsg.connect(self.msg_slot)
 	
 	def real_event_slot(self):
 		self.OnReceiveRealData.connect(self.realdata_slot)  # 실시간 이벤트 연결
@@ -89,9 +94,13 @@ class Kiwoom(QAxWidget):
 			account_num = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['계좌번호'])
 			sCode = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목코드'])[1:]
 			stock_name = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목명']).strip()
+			order_status = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['주문상태'])
 			
-			print(account_num, sCode, stock_name)
-	
+			print(account_num, sCode, stock_name, order_status)
+			
+	def msg_slot(self, sCrNo, sRQName, sTrCode, msg):
+		print("스크린 %s, 요청이름 %s, tr코드: %s \t\t %s" % (sCrNo, sRQName, sTrCode, msg))
+		
 	def get_account_info(self):
 		account_list = self.dynamicCall("GetLoginInfo(QString)", "ACCNO")
 		self.account_num = account_list.split(';')[0]
@@ -195,6 +204,7 @@ class Kiwoom(QAxWidget):
 			print("장 종료, 동시호가로 넘어감")
 		elif value == "4":
 			print("3시30분 장 종료")
+			# sys.exit()
 	
 	def stockSigning(self):
 		pass
