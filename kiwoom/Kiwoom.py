@@ -4,15 +4,19 @@ from PyQt5 import QtCore
 from PyQt5.QtTest import *
 from config.kiwoomType import *
 from config.log_class import *
-
+from config.telegramBot import *
+import threading
 
 class Kiwoom(QAxWidget):
 	def __init__(self):
 		super().__init__()
 		# print("Kiwoom() class Start")
 		
-		self.logging = Logging()
-		self.logging.logger.debug("Kiwoom() class Start")
+		self.log = Logging().logger
+		self.log.debug("Kiwoom() class Start")
+		
+		self.bot = telegramBot()
+		self.bot.send(text="키움 자동화 매매 프로그램이 시작되었습니다.")
 		
 		self.realType = RealType()
 		
@@ -23,7 +27,7 @@ class Kiwoom(QAxWidget):
 		
 		self.event_loop_login = QEventLoop()
 		self.event_loop_detail_account_info = QEventLoop()
-		self.event_loop_day_chart = QEventLoop()
+		self.event_loop_chart = QEventLoop()
 		
 		self.account_num = None
 		self.deposit = 0  # 예수금
@@ -34,6 +38,7 @@ class Kiwoom(QAxWidget):
 		self.account_stock_dict = {}  # 주식 보유
 		self.stock_day_chart_dict = {}
 		self.stock_wait_dict = {}
+		self.stock_min_chart_dict = {}
 		
 		self.get_ocx_instance()  # OCX 방식을 파이썬에 사용할 수 있게 변환해 주는 함수
 		self.event_slots()  # 키움과 연결하기 위한 시그널 / 슬롯 모음
@@ -41,16 +46,17 @@ class Kiwoom(QAxWidget):
 		self.signal_login_commConnect()  # 로그인 요청 함수
 		self.get_account_info()
 		print("계좌 보유 현황")
-		# QTimer.singleShot(3600, self.get_stock_info)
-		# QTest.qWait(10000)
-		# self.get_day_chart(code="005930") # 삼성전자
+		QTimer.singleShot(3600, self.get_stock_info)
 		
+		# self.get_day_chart(code="005930") # 삼성전자
+		# result = self.dynamicCall("SetRealRemove(QString, QString)", "ALL", "ALL")
 		# QTest.qWait(5000)
 		
-		# result = self.dynamicCall("SetRealReg(QString, QString, QString, QString)", self.screen_start_stop_real, ' ', self.realType.REALTYPE['장시작시간']['장운영구분'], "0") # 공백이여야한다. None이 아닌
-		# print(result)
-		
-		self.buyStock("005930", 1, 80000)
+		# self.dynamicCall("SetRealReg(QString, QString, QString, QString)", self.screen_start_stop_real, ' ', self.realType.REALTYPE['장시작시간']['장운영구분'], "0") # 공백이여야한다. None이 아닌
+	
+		# self.buyStock("005930", 1, 80000)
+	
+		# self.test_today()
 	
 	def get_ocx_instance(self):
 		self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
@@ -81,12 +87,14 @@ class Kiwoom(QAxWidget):
 			self.get_stock_info_detail(sRQName, sTrCode, sPrevNext)
 		elif sRQName == "주식일봉차트조회요청":
 			self.get_day_chart_detail(sTrCode, sRQName)
+		elif sRQName == '주식분봉차트조회요청':
+			self.get_min_chart_detail(sTrCode, sRQName)
 	
 	def realdata_slot(self, sCode, sRealType, sRealData):
 		if sRealType == "장시작시간":
 			self.isTime()
 		elif sRealType == "주식체결":
-			self.stockSigning()
+			self.log.debug("%s %s %s" % (sCode, sRealType, sRealData))
 			
 	def chejan_slot(self, sGubun, nItemCnt, sFidList):
 		print("체결잔고 :", sGubun)
@@ -134,6 +142,9 @@ class Kiwoom(QAxWidget):
 		self.money_stock = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총평가금액"))
 		
 		rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)
+		if rows == 0:
+			self.log.debug("No Stock!")
+			self.bot.send("No Stock!")
 		for i in range(rows):
 			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목번호").strip()[1:]
 			if code in self.account_stock_dict:
@@ -148,8 +159,9 @@ class Kiwoom(QAxWidget):
 			self.account_stock_dict[code].update({"보유수량": int(stock_quantity.strip())})
 			self.account_stock_dict[code].update({"평가손익": int(profit.strip())})
 			self.account_stock_dict[code].update({"수익률(%)": float(earn_rate.strip())})
-			print("Code %s : " % code, end='')
-			print(self.account_stock_dict[code])
+			
+			self.log.logger.debug(self.account_stock_dict[code])
+			self.log.debug(self.account_stock_dict[code])
 		
 		if sPrevNext == "2":
 			self.get_stock_info(sPrevNext="2")
@@ -166,7 +178,7 @@ class Kiwoom(QAxWidget):
 		if date is None:
 			self.dynamicCall("SetInputValue(QString, QString)", "기준일자", "")
 		self.dynamicCall("CommRqData(QString, QString, int, QString)", "주식일봉차트조회요청", "opt10081", sPrevNext, self.screen_chart_info)
-		self.event_loop_day_chart.exec_()
+		self.event_loop_chart.exec_()
 	
 	def get_day_chart_detail(self, sTrCode, sRQName):
 		code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "종목코드").strip()
@@ -192,7 +204,7 @@ class Kiwoom(QAxWidget):
 				print(data)
 				self.stock_day_chart_dict[code][date] = data
 		
-		self.event_loop_day_chart.exit()
+		self.event_loop_chart.exit()
 	
 	def isTime(self):
 		value = value = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE['장시작시간']['장운영구분'])
@@ -205,9 +217,6 @@ class Kiwoom(QAxWidget):
 		elif value == "4":
 			print("3시30분 장 종료")
 			# sys.exit()
-	
-	def stockSigning(self):
-		pass
 	
 	def buyStock(self, sCode, nQty, nPrice, sOrderNum=""):
 		#if nPrice == 0:
@@ -222,6 +231,7 @@ class Kiwoom(QAxWidget):
 		
 		if order_success == 0:
 			print("[%s %s] 주문 성공" % (order_type, sCode))
+			self.bot.send("[%s %s] 주문 성공" % (order_type, sCode))
 		else:
 			print("[%s|%s] 주문 실패 Error Code : %d" % (order_type, sCode, order_success))
 	
@@ -240,3 +250,37 @@ class Kiwoom(QAxWidget):
 			print("[%s|%s] 주문 성공" % (order_type, sCode))
 		else:
 			print("[%s|%s] 주문 실패 Error Code : %d" % (order_type, sCode, order_success))
+			
+	def get_min_chart_detail(self, sTrCode, sRQName):
+		code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "종목코드").strip()
+		cnt = int(self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName))
+		self.stock_min_chart_dict[code] = {}
+		print(cnt)
+		for i in range(cnt):
+			data = {}
+			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()
+			value = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "거래량").strip()
+			time = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "체결시간").strip()
+			start_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "시가").strip()
+			high_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "고가").strip()
+			low_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "저가").strip()
+			
+			data.update({"현재가" : price})
+			data.update({"거래량": value})
+			data.update({'시가': start_price})
+			data.update({'고가': high_price})
+			data.update({'저가': low_price})
+			self.stock_min_chart_dict[code][time] = data
+			
+		self.event_loop_chart.exit()
+		
+		
+		
+	def test_today(self):
+		self.dynamicCall("SetInputValue(QString, QString)", "종목코드", "053260")
+		self.dynamicCall("SetInputValue(QString, QString)", "틱범위", "1")
+		self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "0")
+		self.dynamicCall("CommRqData(QString, QString, int, QString)", "주식분봉차트조회요청", "opt10080", "0", self.screen_my_info)
+		self.event_loop_chart.exec_()
+	
+# threading.Timer(5, self.doit).start()
