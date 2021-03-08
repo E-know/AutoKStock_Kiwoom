@@ -9,3 +9,5 @@ class Screen:
 		
 		self.isOpen = "8000"
 		
+		self.buy_sell = "5000"
+		

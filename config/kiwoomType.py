@@ -49,6 +49,7 @@ class RealType(object):
 		
 		'장시작시간': {
 			'장운영구분': 215,
+			# https://wikidocs.net/86347
 			# 0 장시작 전
 			# 3 장 중
 			# 2 장 종료 10분전 동시호가

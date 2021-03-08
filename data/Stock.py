@@ -43,10 +43,7 @@ class Stock:
 	
 	
 	def when_buy(self, code):
-		own = False
 		oldtime = None
-		price = 0
-		total = 0
 		for i, now in enumerate(self.min_chart[code]):
 			if oldtime is None:
 				oldtime = now
@@ -56,8 +53,8 @@ class Stock:
 				continue
 			if own:  # SELL
 				# if self.min_chart[code][oldtime]['5평가'] > self.min_chart[code][oldtime]['20평가'] and self.min_chart[code][now]['5평가'] < self.min_chart[code][now]['20평가']:
-				if self.min_chart[code][oldtime]['5평가'] > self.min_chart[code][now]['5평가']:
 				# if self.min_chart[code][oldtime]['5평가'] - self.min_chart[code][now]['5평가'] > self.min_chart[code][now]['5평가'] * 0.0075:
+				if self.min_chart[code][oldtime]['5평가'] > self.min_chart[code][now]['5평가']:
 					price += int(self.min_chart[code][now]['현재가'])
 					total += price
 					print("SELL %s %s %d" % (now, self.min_chart[code][now]['현재가'], price))
