@@ -24,22 +24,26 @@ class Stock:
 		t= time.localtime()
 		hour = int(t.tm_hour)
 		min = int(t.tm_min)
-		return str(hour * 10000 + min * 100)
+		if hour < 10:
+			return "0" + str(hour * 10000 + min * 100)
+		else:
+			return str(hour * 10000 + min * 100)
 	
-	def set_average(self, code="068050"):
+	def set_average(self, code):
 		price = []
-		for i, time in enumerate(self.min_chart[code]):
-			price.append(int(self.min_chart[code][time]['현재가']))
-			
+		times = []
+		for i, oldtime in enumerate(self.min_chart[code]):
+			price.append(int(self.min_chart[code][oldtime]['현재가']))
+			times.append(oldtime)
 			if len(price) < 5:
-				self.min_chart[code][time].update({'5평가': None, '20평가': None})
+				continue
 			elif len(price) < 20:
-				self.min_chart[code][time].update({'5평가': sum(price[-5:]) / 5, '20평가': None})
+				self.min_chart[code][times[-5]].update({'5평가': sum(price[-5:]) / 5, '20평가': None})
 			if len(price) == 20:
-				self.min_chart[code][time].update({'5평가': sum(price[-5:]) / 5})
-				self.min_chart[code][time].update({'20평가': sum(price) / 20})
+				self.min_chart[code][times[-5]].update({'5평가': sum(price[-5:]) / 5})
+				self.min_chart[code][times[0]].update({'20평가': sum(price) / 20})
 				price.pop(0)
-		
+				times.pop(0)
 	
 	
 	def when_buy(self, code):
@@ -66,4 +70,3 @@ class Stock:
 					own = True
 			oldtime = now
 			
-		print("###### YOU EARN %d FROM %s ######" % (total, code))

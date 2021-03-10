@@ -7,7 +7,7 @@ class Screen:
 		
 		self.realData = "3333"
 		
-		self.isOpen = "8000"
+		self.isOpen = "7000"
 		
 		self.buy_sell = "5000"
 		
