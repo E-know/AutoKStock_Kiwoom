@@ -2,7 +2,9 @@ import telegram   #텔레그램 모듈을 가져옵니다.
 
 class telegramBot():
 	def __init__(self):
-		my_token = '1687438841:AAGgSeK0nGH9QsRPxkT-X8iK6Ud0JUsSEEw'  # 토큰을 변수에 저장합니다.
+		my_token = 'Please Type Token Here'  # 토큰을 변수에 저장합니다.
+		if my_token == ''Please Type Token Here'
+			print("TOKEN ERROR")
 		self.bot = telegram.Bot(token=my_token)
 		
 	def send(self, text=None):
