@@ -24,10 +24,22 @@ class Stock:
 		day = int(t.tm_mday)
 		self.date = str(year * 10000 + mon * 100 + day)
 		
+	def get_time_with_sec(selfs):
+		def get_time(self):
+			t = time.localtime()
+			hour = int(t.tm_hour)
+			min = int(t.tm_min)
+			sec = int(t.tm_sec)
+			if hour < 10:
+				return "0" + str(hour * 10000 + min * 100)
+			else:
+				return str(hour * 10000 + min * 100 + sec)
+			
 	def get_time(self):
 		t= time.localtime()
 		hour = int(t.tm_hour)
 		min = int(t.tm_min)
+		sec = int(t.tm_sec)
 		if hour < 10:
 			return "0" + str(hour * 10000 + min * 100)
 		else:
