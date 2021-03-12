@@ -62,6 +62,10 @@ class Kiwoom(QAxWidget):
 				self.real_jusikchegul(sCode, sRealType, sRealData)
 		elif sRealType == '장시작시간':
 			self.real_isOpen(sCode, sRealType, sRealData)
+			
+	def real_isOpen(self, sCode, sRealType, sRealData):
+		self.isOpen = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['장운영구분']).strip()
+		self.log.debug("장 운영 구분 : " + self.isOpen)
 	
 	def signal_login_commConnect(self):
 		self.dynamicCall("CommConnect()")
@@ -149,12 +153,14 @@ class Kiwoom(QAxWidget):
 			if code in self.account.stock_dict:
 				continue
 			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명")
+			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "매입가").strip()
 			stock_quantity = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "보유수량")
 			profit = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "평가손익")
 			earn_rate = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "수익률(%)")
 			
 			self.account.stock_dict[code] = {}
 			self.account.stock_dict[code].update({"종목명": name.strip()})
+			self.account.stock_dict[code].update({'체결가': price})
 			self.account.stock_dict[code].update({"보유수량": int(stock_quantity.strip())})
 			self.account.stock_dict[code].update({"평가손익": int(profit.strip())})
 			self.account.stock_dict[code].update({"수익률(%)": float(earn_rate.strip())})
@@ -244,10 +250,6 @@ class Kiwoom(QAxWidget):
 			self.log.debug("%s[%s] 매도 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 구매시도" % (self.account.stock_dict[sCode]['종목명'], sCode))
 		else:
 			self.log.debug("%s[%s] 매도중에 알 수 없는 에러가 발생했습니다. ErrorCode %d" % (self.account.stock_dict[sCode]['종목명'], sCode, status))
-	
-	def real_isOpen(self, sCode, sRealType, sRealData):
-		self.isOpen = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['장운영구분']).strip()
-		self.log.debug("장 운영 구분 : " + self.isOpen)
 		
 	def have_to_sell(self, code, price):
 		if price < self.stock.min_chart[code][self.stock.get_minustime()]['20평가']:
@@ -281,10 +283,11 @@ class Kiwoom(QAxWidget):
 				self.stock.prices[code].pop(0)
 			elif len(self.stock.prices[code]) >= 5:
 				self.stock.min_chart[code][before].update({'5평가': sum(self.stock.prices[code][:5]) / 5, '20평가': None})
+				return
 			else:
 				self.stock.min_chart[code][before]=({'5평가': None, '20평가': None})
+				return
 		
-		if len(self.stock.prices) > 20:
 			if code in self.account.stock_dict:
 				self.have_to_sell(code, int(price))
 			else:
