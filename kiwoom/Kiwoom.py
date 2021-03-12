@@ -24,7 +24,7 @@ class Kiwoom(QAxWidget):
 		self.screen = Screen()
 		self.stock = Stock()
 		self.loop = Eventloop()
-		self.isOpen = '3'
+		self.isOpen = '4'
 		self.oldtime = None
 		
 		self.get_ocx_instance()  # OCX 방식을 파이썬에 사용할 수 있게 변환해 주는 함수
@@ -35,14 +35,41 @@ class Kiwoom(QAxWidget):
 		self.get_stock_info()
 		
 		QTest.qWait(2000)
-		self.get_jongmok()
-		self.dynamicCall("SetRealRemove(QString, QString)", "ALL", "ALL")
+		time.sleep(1)
+		self.running()
 		
-		for code in self.stock.jongmok:
-			self.dynamicCall("SetRealReg(QString, QString, QString, QString)", self.screen.realchart, code, self.realType.REALTYPE['주식체결']['현재가'], "1")
+		print("MAIN CODE IS END")
+	
+	def running(self):
+		while True:
+			if self.isOpen == '3':
+				while self.stock.get_time_with_sec() < "092000":
+					pass
+				self.get_jongmok()
+				self.dynamicCall("SetRealRemove(QString, QString)", "ALL", "ALL")
+				
+				for code in self.stock.jongmok:
+					self.dynamicCall("SetRealReg(QString, QString, QString, QString)", self.screen.realchart, code, self.realType.REALTYPE['주식체결']['현재가'], "1")
+				
+				while self.isOpen == '3':
+					pass
+			
+			elif self.isOpen == '2':
+				self.log.debug('동시호가에 진입했습니다.')
+				self.isOpen = None
+				
+				while self.isOpen is None:
+					pass
+				# 동시호가
+			elif self.isOpen == '4':
+				self.log.debug('장이 마감되었습니다.')
+				self.bot.send("장이 마감되었습니다.")
+				
+				while self.isOpen == '4':
+					pass
+				# 장 마감
 		
-		print("MAIN IS ENDING")
-		
+			
 	
 	def get_ocx_instance(self):
 		self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
@@ -199,15 +226,20 @@ class Kiwoom(QAxWidget):
 			self.stock.oldtime[code] = None
 			self.stock.min_chart[code] = {}
 			self.stock.prices[code] = []
+			
+			self.min_chart(code)
+			
 		self.loop.jongmok.exit()
+		
+		
 	
 	def min_chart(self, code):
+		while self.loop.min_chart.isRunning():
+			pass
+		
 		self.dynamicCall("SetInputValue(QString, QString", "종목코드", code)
 		self.dynamicCall("SetInputValue(QString, QString", "틱범위", "1")
 		self.dynamicCall("SetInputValue(QString, QString", "수정주가구분", "0")
-		
-		while self.loop.min_chart.isRunning():
-			pass
 		
 		self.dynamicCall("CommRqData(QString, QString, int, QString)", "주식분봉차트조회요청", "opt10080", "0", self.screen.jongmok)
 		
@@ -216,21 +248,18 @@ class Kiwoom(QAxWidget):
 	def tr_min_chart(self, sTrCode, sRQName):
 		code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "종목코드").strip()
 		rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)  # 900
+		
 		self.stock.min_chart[code] = {}
-		for i in range(378):
-			data = {}
+		for i in range(20):
 			time = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "체결시간").strip()
 			if time[0:8] != self.stock.date:
 				break
-			start_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "시가").strip()[1:]
 			now_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]  # 종가
-			high_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "고가").strip()[1:]
-			low_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "저가").strip()[1:]
-			
-			data.update({'시가': start_price, '현재가': now_price, '고가': high_price, '저가': low_price})
-			self.stock.min_chart[code].update({time: data})
 		
-		self.stock.set_average(code)
+			self.stock.prices[code].insert(0, now_price)
+			data = {'현재가': now_price}
+			self.stock.min_chart[code].update({time[8:12] + "00": data})
+		
 		self.loop.min_chart.exit()
 	
 	def buy_Stock(self, sCode, nQty, nPrice=0, sOrderNum=""):
@@ -282,7 +311,7 @@ class Kiwoom(QAxWidget):
 				self.stock.min_chart[code][before].update({'5평가': sum(self.stock.prices[code][-5:]) / 5, '20평가': sum(self.stock.prices[code]) / 20})
 				self.stock.prices[code].pop(0)
 			elif len(self.stock.prices[code]) >= 5:
-				self.stock.min_chart[code][before].update({'5평가': sum(self.stock.prices[code][:5]) / 5, '20평가': None})
+				self.stock.min_chart[code][before].update({'5평가': sum(self.stock.prices[code][-5:]) / 5, '20평가': None})
 				return
 			else:
 				self.stock.min_chart[code][before]=({'5평가': None, '20평가': None})
