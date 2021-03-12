@@ -9,7 +9,7 @@ __pycache__/
 *$py.class
 
 # Bot
-telegramBot.py
+config/telegramBot.py
 
 # C extensions
 *.so
