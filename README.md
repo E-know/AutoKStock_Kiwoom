@@ -1,5 +1,6 @@
 # AutoKStock
 키움증권의 Open API를 이용한 주식 자동매매 프로그램
+Auto + Korean + Stock = AutoKStock
 
 # Main Language & Framework
 <img src="https://me2.do/5OnbbpB1" width="50%">
