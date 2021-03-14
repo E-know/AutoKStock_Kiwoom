@@ -285,3 +285,7 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+
+kiwoom/Kiwoom_copy.py
+
+test.py
