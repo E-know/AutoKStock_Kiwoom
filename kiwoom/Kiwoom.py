@@ -84,6 +84,7 @@ class Kiwoom(QAxWidget):
 		self.OnReceiveChejanData.connect(self.chejan_slot)
 	
 	def realdata_slot(self, sCode, sRealType, sRealData):
+		print(sCode)
 		if sRealType == '주식체결':
 			if sCode in self.stock.jongmok.keys():
 				self.real_jusikchegul(sCode, sRealType, sRealData)
@@ -120,6 +121,10 @@ class Kiwoom(QAxWidget):
 			self.tr_get_jongmok(sTrCode, sRQName)
 		elif sRQName == '주식분봉차트조회요청':
 			self.tr_min_chart(sTrCode, sRQName)
+		elif sRQName == '매수':
+			pass
+		elif sRQName == '매도':
+			pass
 	
 	def msg_slot(self, sCrNo, sRQName, sTrCode, msg):
 		self.log.debug("[Screen : %s] %s %s %s" % (sCrNo, sRQName, sTrCode, msg))
@@ -132,12 +137,12 @@ class Kiwoom(QAxWidget):
 			price = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결가'])
 			status = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['매도수구분'])
 			
-			if status == '+':
+			if status == '2': # 매수
 				self.account.stock_dict[code] = ({'종목명': name, '보유수량': quantity, '체결가': price})
 				msg = "[매수]" + name + " 체결가 : " + price + " 수량 : " + quantity
 				self.bot.send(msg)
 				self.log.debug(msg)
-			elif status == '-':
+			elif status == '1': # 매도
 				earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
 				msg = "[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity + " 이익 : " + str(earn)
 				self.bot.send(msg)
@@ -286,13 +291,13 @@ class Kiwoom(QAxWidget):
 	def have_to_sell(self, code, time, price):
 		if self.stock.min_chart[code][time]['20평가'] is None:
 			pass
-		elif self.stock.min_chart[code][time]['20평가'] > price:
+		elif self.stock.min_chart[code][time]['20평가'] > price or self.stock.min_chart[code][time]['5평가'] < self.stock.min_chart[code][self.stock.get_minustime()]['5평가']:
 			self.sell_stock(code)
 	
 	def have_to_buy(self, code, time, price):
 		if self.stock.min_chart[code][time]['20평가'] is None:
 			pass
-		elif self.stock.min_chart[code][time]['20평가'] < price:
+		elif self.stock.min_chart[code][time]['20평가'] < price and self.stock.min_chart[code][time]['5평가'] > self.stock.min_chart[code][time]['20평가']:
 			self.buy_Stock(code, 10)
 	
 	def real_jusikchegul(self, code, sRealType, sRealData):
@@ -305,22 +310,23 @@ class Kiwoom(QAxWidget):
 		self.stock.prices[code][time[:4]] = int(price)
 			
 		if len(self.stock.prices[code]) == 20:
+			if time[:4] not in self.stock.min_chart[code].keys():
+				self.stock.min_chart[code][time[:4]] = {}
+			
 			sum = 0
 			for i, ele in enumerate(self.stock.prices[code]):
 				if i == 5:
-					break
+					self.stock.min_chart[code][time[:4]]['5평가'] = sum / 5
+					
 				sum += self.stock.prices[code][ele]
-			if time[:4] not in self.stock.min_chart[code].keys():
-				self.stock.min_chart[code][time[:4]] = {}
 				
-			self.stock.min_chart[code][time[:4]]['5평가'] = sum / 5
-			self.stock.min_chart[code][time[:4]]['20평가'] = sum(self.stock.prices[code].values()) / 5
+			self.stock.min_chart[code][time[:4]]['20평가'] = sum / 20
 			
 			self.stock.prices[code].pop(self.stock.time[0])
 			self.stock.time.pop(0)
 			
 			if time[:4] > "0920":
 				if code in self.account.stock_dict:
-					self.have_to_sell(code, time[:4], price)
+					self.have_to_sell(code, time[:4], int(price))
 				else:
-					self.have_to_buy(code, time[:4], price)
+					self.have_to_buy(code, time[:4], int(price))
