@@ -16,6 +16,7 @@ class Stock:
 		self.prices = {}
 		
 		self.oldtime = {}
+		self.time = []
 	
 		self.flag = {}
 		
@@ -42,9 +43,9 @@ class Stock:
 		min = int(t.tm_min)
 		sec = int(t.tm_sec)
 		if hour < 10:
-			return "0" + str(hour * 10000 + min * 100)
+			return "0" + str(hour * 100 + min * 100)
 		else:
-			return str(hour * 10000 + min * 100)
+			return str(hour * 100 + min )
 		
 	def get_minustime(self):
 		t = time.localtime()
