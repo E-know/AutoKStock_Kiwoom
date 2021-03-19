@@ -15,10 +15,7 @@ class Stock:
 		
 		self.prices = {}
 		
-		self.oldtime = {}
 		self.time = []
-	
-		self.flag = {}
 		
 	def set_date(self):
 		t = time.localtime()

@@ -130,7 +130,7 @@ class Kiwoom(QAxWidget):
 	
 	def chejan_slot(self, sGubun, nItemCnt, sFidList):
 		if int(sGubun) == 0:
-			code = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목코드']).strip()[1:]
+			code = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목코드']).strip()[1:] # TODO 이거 [1:] 맞는건가?
 			name = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목명']).strip()
 			quantity = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결량']).strip()
 			price = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결가']).strip()
@@ -141,13 +141,14 @@ class Kiwoom(QAxWidget):
 				msg = "[매수]" + name + " 체결가 : " + price + " 수량 : " + quantity
 				self.bot.send(msg)
 				self.log.debug(msg)
+				self.loop.buy[code].exit()
 			elif status == '1': # 매도
 				# earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
 				msg = "[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity # + " 이익 : " + str(earn)
 				self.bot.send(msg)
 				self.log.debug(msg)
 				self.account.stock_dict.pop(code)
-				self.loop.sell.exit()
+				self.loop.sell[code].exit()
 	
 	def get_account_info(self):
 		account_list = self.dynamicCall("GetLoginInfo(QString)", "ACCNO")
@@ -232,18 +233,18 @@ class Kiwoom(QAxWidget):
 				
 			data = {}
 			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
-			if code == '530036' or code == '500027':
-				continue
 			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명").strip()
+			if name.__contains__('ETN') or name.__contains__('KODEX') or name.__contains__('TIGER'):
+				continue
 			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]
 			
 			data.update({"종목명": name, "현재가": price})
 			self.stock.jongmok[code] = data
 			
-			self.stock.oldtime[code] = None
 			self.stock.min_chart[code] = {}
 			self.stock.prices[code] = {}
-			self.stock.flag[code] = False
+			self.loop.buy[code] = QEventLoop()
+			self.loop.sell[code] = QEventLoop()
 		
 		self.loop.jongmok.exit()
 	
@@ -272,10 +273,14 @@ class Kiwoom(QAxWidget):
 			data = {'현재가': now_price, '5평가': None, '20평가': None}
 			self.stock.min_chart[code].update({time[8:12]: data})
 		
-		self.stock.flag[code] = True
 		self.loop.min_chart.exit()
 	
 	def buy_Stock(self, sCode, nQty, nPrice=0, sOrderNum=""):
+		while self.loop.buy[code].isRunning():
+			if sCode in self.account.stock_dict:
+				return
+		self.loop.buy[code].exec_()
+		
 		status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매수", self.screen.buy_sell, self.account.account_num, 1, sCode, nQty, nPrice, '03', sOrderNum])
 		if status == 0:
 			self.log.debug("[매수]" + sCode + "주문이 접수되었습니다.")
@@ -285,10 +290,10 @@ class Kiwoom(QAxWidget):
 			self.log.debug("%s 구매중에 에러가 발생했습니다." % sCode)
 	
 	def sell_stock(self, sCode, nPrice=0, sOrderNum=""):
-		while self.loop.sell.isRunning():
+		while self.loop.sell[sCode].isRunning():
 			if sCode not in self.account.stock_dict:
 				return
-		self.loop.sell.exec_()
+		self.loop.sell[code].exec_()
 		
 		status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen.buy_sell, self.account.account_num, 2, sCode, int(self.account.stock_dict[sCode]['보유수량']), nPrice, '03', sOrderNum])
 		if status == 0:
