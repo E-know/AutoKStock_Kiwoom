@@ -14,3 +14,4 @@
 
 ## 매수/매도 전략 Strategy 
 [Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.00.md)
+[Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.01.md)
