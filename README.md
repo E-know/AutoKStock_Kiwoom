@@ -13,6 +13,5 @@
 <img src="https://user-images.githubusercontent.com/55151796/111448687-04a62f00-8752-11eb-9b38-dc459cd4ceff.png" width="20%">
 
 ## 매수/매도 전략 Strategy 
-[Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.00.md)
-
+[Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.00.md)  
 [Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.01.md)
