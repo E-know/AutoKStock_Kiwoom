@@ -4,7 +4,7 @@
 **Auto** + **K**orean + **Stock** = AutoKStock
 
 # Main Language & Framework
-<img src="https://me2.do/5OnbbpB1" width="50%">
+<img src="https://me2.do/5rsMUeTf" width="50%">
 
 ## 사용 API
 <img src="https://user-images.githubusercontent.com/55151796/111038713-cd8fff00-846d-11eb-9b82-9d84733a5dcf.png" width="50%">
