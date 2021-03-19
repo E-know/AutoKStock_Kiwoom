@@ -7,7 +7,6 @@ from data.Account import *
 from data.Screen import *
 from data.Stock import *
 from data.Eventloop import *
-import time
 
 
 class Kiwoom(QAxWidget):
@@ -43,7 +42,7 @@ class Kiwoom(QAxWidget):
 				pass
 			print("START")
 			self.get_jongmok()
-			self.dynamicCall("DisconectRealData(QString)", self.screen.jongmok)
+			self.dynamicCall("DisconnectRealData(QString)", self.screen.jongmok)
 			self.dynamicCall("SetRealRemove(QString, QString", "ALL", "ALL")
 			QTest.qWait(2000)
 			print(self.stock.jongmok)
@@ -131,23 +130,24 @@ class Kiwoom(QAxWidget):
 	
 	def chejan_slot(self, sGubun, nItemCnt, sFidList):
 		if int(sGubun) == 0:
-			code = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목코드'])[1:]
-			name = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목명'])
-			quantity = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결량'])
-			price = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결가'])
-			status = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['매도수구분'])
+			code = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목코드']).strip()[1:]
+			name = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목명']).strip()
+			quantity = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결량']).strip()
+			price = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결가']).strip()
+			status = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['매도수구분']).strip()
 			
 			if status == '2': # 매수
-				self.account.stock_dict[code] = ({'종목명': name, '보유수량': quantity, '체결가': price})
+				self.account.stock_dict[code] = {'종목명': name, '보유수량': quantity, '체결가': price}
 				msg = "[매수]" + name + " 체결가 : " + price + " 수량 : " + quantity
 				self.bot.send(msg)
 				self.log.debug(msg)
 			elif status == '1': # 매도
-				earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
-				msg = "[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity + " 이익 : " + str(earn)
+				# earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
+				msg = "[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity # + " 이익 : " + str(earn)
 				self.bot.send(msg)
 				self.log.debug(msg)
 				self.account.stock_dict.pop(code)
+				self.loop.sell.exit()
 	
 	def get_account_info(self):
 		account_list = self.dynamicCall("GetLoginInfo(QString)", "ACCNO")
@@ -226,9 +226,14 @@ class Kiwoom(QAxWidget):
 	
 	def tr_get_jongmok(self, sTrCode, sRQName):
 		self.log.debug("전일대비등략률상위요청[TR]")
-		for i in range(5):
+		for i in range(100):
+			if len(self.stock.jongmok) == 5:
+				break
+				
 			data = {}
 			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
+			if code == '530036' or code == '500027':
+				continue
 			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명").strip()
 			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]
 			
@@ -280,6 +285,11 @@ class Kiwoom(QAxWidget):
 			self.log.debug("%s 구매중에 에러가 발생했습니다." % sCode)
 	
 	def sell_stock(self, sCode, nPrice=0, sOrderNum=""):
+		while self.loop.sell.isRunning():
+			if sCode not in self.account.stock_dict:
+				return
+		self.loop.sell.exec_()
+		
 		status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen.buy_sell, self.account.account_num, 2, sCode, int(self.account.stock_dict[sCode]['보유수량']), nPrice, '03', sOrderNum])
 		if status == 0:
 			self.log.debug("[매도]" + sCode + "주문이 접수되었습니다.")
@@ -289,16 +299,24 @@ class Kiwoom(QAxWidget):
 			self.log.debug("%s[%s] 매도중에 알 수 없는 에러가 발생했습니다. ErrorCode %d" % (self.account.stock_dict[sCode]['종목명'], sCode, status))
 	
 	def have_to_sell(self, code, time, price):
-		if self.stock.min_chart[code][time]['20평가'] is None:
-			pass
-		elif self.stock.min_chart[code][time]['20평가'] > price or self.stock.min_chart[code][time]['5평가'] < self.stock.min_chart[code][self.stock.get_minustime()]['5평가']:
-			self.sell_stock(code)
+		if len(self.stock.min_chart[code]) >= 2:
+			old = None
+			for i, ele in enumerate(self.stock.min_chart[code]):
+				if i == 0:
+					old = ele
+				if i == 1:
+					new = ele
+					break
+			if self.stock.min_chart[code][time]['20평가'] > price or self.stock.min_chart[code][old]['5평가'] > self.stock.min_chart[code][new]['5평가']:
+				self.sell_stock(code)
+		elif self.stock.min_chart[code][time]['20평가'] is not None:
+			if self.stock.min_chart[code][time]['20평가'] > price:
+				self.sell_stock(code)
 	
 	def have_to_buy(self, code, time, price):
-		if self.stock.min_chart[code][time]['20평가'] is None:
-			pass
-		elif self.stock.min_chart[code][time]['20평가'] < price and self.stock.min_chart[code][time]['5평가'] > self.stock.min_chart[code][time]['20평가']:
-			self.buy_Stock(code, 10)
+		if self.stock.min_chart[code][time]['20평가'] is not None:
+			if self.stock.min_chart[code][time]['20평가'] < price and self.stock.min_chart[code][time]['5평가'] > self.stock.min_chart[code][time]['20평가']:
+				self.buy_Stock(code, 10)
 	
 	def real_jusikchegul(self, code, sRealType, sRealData):
 		time = self.dynamicCall("GetCommRealData(QString, int)", code, self.realType.REALTYPE[sRealType]['체결시간'])
@@ -315,14 +333,16 @@ class Kiwoom(QAxWidget):
 			
 			sum = 0
 			for i, ele in enumerate(self.stock.prices[code]):
-				if i == 5:
-					self.stock.min_chart[code][time[:4]]['5평가'] = sum / 5
-					
 				sum += self.stock.prices[code][ele]
+				if i == 4:
+					self.stock.min_chart[code][time[:4]]['5평가'] = sum / 5
 				
 			self.stock.min_chart[code][time[:4]]['20평가'] = sum / 20
 			
-			self.stock.prices[code].pop(self.stock.time[0])
+			for i, ele in enumerate(self.stock.prices[code]):
+				self.stock.prices[code].pop(ele)
+				break
+				
 			self.stock.time.pop(0)
 			
 			if time[:4] > "0920":

@@ -59,6 +59,6 @@ class Stock:
 			min = 59
 			
 		if hour < 10:
-			return "0" + str(hour * 10000 + min)
+			return "0" + str(hour * 100 + min)
 		else:
-			return str(hour * 10000 + min)
+			return str(hour * 100 + min)

@@ -7,3 +7,7 @@ class Eventloop:
 		
 		self.jongmok = QEventLoop()
 		self.min_chart = QEventLoop()
+		
+		self.buy = {}
+		
+		self.sell = {}
