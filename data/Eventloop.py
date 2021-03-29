@@ -11,3 +11,8 @@ class Eventloop:
 		self.buy = {}
 		
 		self.sell = {}
+		
+		self.trade = []
+
+		self.sem_buy = {}
+		self.sem_sell = {}
