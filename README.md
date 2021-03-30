@@ -13,9 +13,11 @@
 <img src="https://user-images.githubusercontent.com/55151796/111448687-04a62f00-8752-11eb-9b38-dc459cd4ceff.png" width="20%">
 
 ## 매수/매도 전략 Strategy 
-[Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.00.md)  
-[Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.01.md)
+[Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.00.md)  
+[Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.01.md)
+[Ver 0.10](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.10.md)
 
 ## 개발일지
 [2021-03-24](https://slowsure.tistory.com/116)  
 [2021-03-29](https://slowsure.tistory.com/117)
+[2021-03-30](https://slowsure.tistory.com/119)
