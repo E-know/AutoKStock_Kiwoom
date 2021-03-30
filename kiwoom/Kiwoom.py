@@ -8,7 +8,8 @@ from data.Screen import *
 from data.Stock import *
 from data.Eventloop import *
 import threading
-
+import pandas as pd
+import numpy as np
 
 class Kiwoom(QAxWidget):
 	def __init__(self):
@@ -51,7 +52,7 @@ class Kiwoom(QAxWidget):
 				self.min_chart(code)
 				self.dynamicCall("DisconnectRealData(QString)", self.screen.min_chart)
 				QTest.qWait(1000)
-				
+			
 			self.dynamicCall("DisconnectRealData(QString)", self.screen.jongmok)
 			self.dynamicCall("DisconnectRealData(QString)", self.screen.min_chart)
 			self.dynamicCall("SetRealRemove(QString, QString", "ALL", "ALL")
@@ -60,7 +61,7 @@ class Kiwoom(QAxWidget):
 			
 			for code in self.stock.jongmok:
 				self.dynamicCall("SetRealReg(QString, QString, QString, QString)", [self.screen.realchart, code, self.realType.REALTYPE['주식체결']['현재가'], "1"])
-			
+		
 		
 		elif self.isOpen == '2':
 			self.log.debug('동시호가에 진입했습니다.')
@@ -99,10 +100,11 @@ class Kiwoom(QAxWidget):
 				self.real_jusikchegul(sCode, sRealType, sRealData)
 			else:
 				self.dynamicCall("SetRealRemove(QString, QString)", "ALL", sCode)
-		# 	if sCode in self.stock.jongmok and self.stock.flag[sCode]:
-		# 		self.real_jusikchegul(sCode, sRealType, sRealData)
-		# elif sRealType == '장시작시간':
-		# 	self.real_isOpen(sCode, sRealType, sRealData)
+	
+	# 	if sCode in self.stock.jongmok and self.stock.flag[sCode]:
+	# 		self.real_jusikchegul(sCode, sRealType, sRealData)
+	# elif sRealType == '장시작시간':
+	# 	self.real_isOpen(sCode, sRealType, sRealData)
 	
 	def get_name(self, code):
 		return self.dynamicCall("GetMasterCodeName(QString)", code).strip()
@@ -143,19 +145,18 @@ class Kiwoom(QAxWidget):
 			price = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결가']).strip()
 			if price == '':
 				return
-			code = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목코드']).strip()[1:] # TODO 이거 [1:] 맞는건가?
+			code = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목코드']).strip()[1:]
 			name = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['종목명']).strip()
 			quantity = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결량']).strip()
 			status = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['매도수구분']).strip()
-			
-			if status == '2': # 매수
+			if status == '2':  # 매수
 				self.account.stock_dict[code] = {'종목명': name, '보유수량': quantity, '체결가': price}
 				msg = "채잔-[매수]" + name + " 체결가 : " + price + " 수량 : " + quantity
 				self.bot.send(msg)
 				self.log.debug(msg)
-			elif status == '1': # 매도
+			elif status == '1':  # 매도
 				# earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
-				msg = "채잔-[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity # + " 이익 : " + str(earn)
+				msg = "채잔-[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity
 				self.bot.send(msg)
 				self.log.debug(msg)
 	
@@ -239,7 +240,7 @@ class Kiwoom(QAxWidget):
 		for i in range(100):
 			if len(self.stock.jongmok) == 5:
 				break
-				
+			
 			data = {}
 			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
 			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명").strip()
@@ -250,8 +251,7 @@ class Kiwoom(QAxWidget):
 			data.update({"종목명": name, "현재가": price})
 			self.stock.jongmok[code] = data
 			
-			self.stock.min_chart[code] = {}
-			self.stock.prices[code] = []
+			self.stock.min_chart[code] = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '20이평'])
 			self.loop.sem_buy[code] = threading.Semaphore(1)
 			self.loop.sem_sell[code] = threading.Semaphore(1)
 		
@@ -270,21 +270,17 @@ class Kiwoom(QAxWidget):
 	
 	def tr_min_chart(self, sTrCode, sRQName):
 		code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "종목코드").strip()
-		rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)  # 900
-		sum = 0
-		self.stock.min_chart[code] = {}
-		for i in range(20):
+		# rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)  # 900
+		for i in range(19, -1, -1):
 			time = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "체결시간").strip()
 			if time[0:8] != self.stock.date:
-				break
+				continue
 			now_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]  # 종가
-			data = [time[-6:-2], now_price]
-			self.stock.prices[code].append(data)
-			
-		self.stock.prices[code].reverse()
+			self.stock.min_chart[code].loc[time[-6:-2]] = [int(now_price), np.nan, np.nan]
+		
 		self.loop.min_chart.exit()
 	
-	def buy_Stock(self, sCode, nQty, time, nPrice=0, sOrderNum=""): # sOrderNum 매수정정 때 쓰임
+	def buy_Stock(self, sCode, nQty, time, nPrice=0, sOrderNum=""):  # sOrderNum 매수정정 때 쓰임
 		self.loop.sem_buy[sCode].acquire()
 		
 		if sCode in self.account.stock_dict or [sCode, time] in self.loop.trade:
@@ -296,13 +292,13 @@ class Kiwoom(QAxWidget):
 			# 03 시장가 / 00 지정가
 			if status == 0:
 				self.log.debug("[매수]" + sCode + "주문이 접수되었습니다.")
-				self.account.stock_dict[sCode] = {} # TODO 이거 수정해야함 안에 얼마에 샀는지 등 몇개를 샀는지
+				self.account.stock_dict[sCode] = {}  # TODO 이거 수정해야함 안에 얼마에 샀는지 등 몇개를 샀는지
 				self.loop.trade.append([sCode, time])
 			elif status == -308:
-				self.log.debug("%s 매수 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 구매시도" % sCode)
+				self.log.debug("%s 매수 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 매도/수 시도" % sCode)
 			else:
 				self.log.debug("%s 구매중에 에러가 발생했습니다." % sCode)
-				
+		
 		self.loop.sem_buy[sCode].release()
 	
 	def sell_stock(self, sCode, time, nPrice=0, sOrderNum=""):
@@ -313,73 +309,47 @@ class Kiwoom(QAxWidget):
 			return
 		
 		if sCode in self.account.stock_dict:
+			# TODO 보유수량 바꾸기
 			status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen.buy_sell, self.account.account_num, 2, sCode, 10, nPrice, '03', sOrderNum])
 			# 03 : 시장가 / 00 : 지정가
-			# TODO 보유수량 바꾸기
 			if status == 0:
 				self.log.debug("[매도]" + sCode + "주문이 접수되었습니다.")
 				self.account.stock_dict.pop(sCode)
 				self.loop.trade.append([sCode, time])
 			elif status == -308:
-				self.log.debug("[%s] 매도 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 구매시도" % (sCode))
+				self.log.debug("[%s] 매도 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 매도/수 시도" % (sCode))
 			else:
 				self.log.debug("%s[%s] 매도중에 알 수 없는 에러가 발생했습니다. ErrorCode %d" % (self.account.stock_dict[sCode]['종목명'], sCode, status))
-				
+		
 		self.loop.sem_sell[sCode].release()
 	
-	def have_to_sell(self, code, time, price):
-		if len(self.stock.min_chart[code]) >= 2:
-			# old = None
-			# for i, ele in enumerate(self.stock.min_chart[code]):
-			# 	if i == 0:
-			# 		old = ele
-			# 		break
-			#if self.stock.min_chart[code][time]['20평가'] > price or self.stock.min_chart[code][old]['5평가'] > self.stock.min_chart[code][time]['5평가']:
-			if self.stock.min_chart[code][time]['20평가'] > self.stock.min_chart[code][time]['5평가']:
-				self.sell_stock(code, time)
-		# elif self.stock.min_chart[code][time]['20평가'] is not None:
-		# 	if self.stock.min_chart[code][time]['20평가'] > price:
-		#		self.sell_stock(code, time)
+	def have_to_sell(self, sCode, time, price):
+		one_m_ago = self.stock.m_ago(time)
+		two_m_ago = self.stock.m_ago(time, min=2)
+		if self.stock.min_chart[sCode].loc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].loc[two_m_ago]['5이평'] or \
+			self.stock.min_chart[sCode].loc[time]['20이평'] > self.stock.min_chart[sCode].loc[time]['5이평']:
+			self.sell_stock(sCode, time, price)
 	
-	def have_to_buy(self, code, time, price):
-		if self.stock.min_chart[code][time]['20평가'] is not None:
-			old = None
-			for i, ele in enumerate(self.stock.min_chart[code]):
-				if i == 0:
-					old = ele
-					break
-			if self.stock.min_chart[code][time]['5평가'] > self.stock.min_chart[code][time]['20평가'] and self.stock.min_chart[code][old]['5평가'] < self.stock.min_chart[code][old]['20평가']: # self.stock.min_chart[code][time]['20평가'] < price and
-				self.buy_Stock(code, 10, time, price)
+	def have_to_buy(self, sCode, time, price):
+		one_m_ago = self.stock.m_ago(time)
+		if self.stock.min_chart[sCode].loc[time]['5이평'] > self.stock.min_chart[sCode].loc[time]['20이평'] and \
+			self.stock.min_chart[sCode].loc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].loc[one_m_ago]['20이평']:
+			self.buy_Stock(sCode, 10, time, price)
 	
-	def real_jusikchegul(self, code, sRealType, sRealData):
-		print(code)
-		time = self.dynamicCall("GetCommRealData(QString, int)", code, self.realType.REALTYPE[sRealType]['체결시간'])[:4]
-		price = self.dynamicCall("GetCommRealData(QString, int)", code, self.realType.REALTYPE[sRealType]['현재가'])[1:]
+	def real_jusikchegul(self, sCode, sRealType, sRealData):
+		print(sCode)
+		time = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['체결시간'])[:4]  # 시 분
+		price = int(self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['현재가'])[1:])
 		
-		if self.stock.prices[code].__len__() == 0:
-			self.stock.prices[code].append([time, price])
-		elif self.stock.prices[code][self.stock.prices[code].__len__() - 1][0] == time:
-			self.stock.prices[code][self.stock.prices[code].__len__() - 1][1] = price
-		else:
-			self.stock.prices[code].append([time, price])
+		if sCode not in self.stock.min_chart[sCode].index:
+			self.stock.min_chart[sCode].loc[time] = [price, np.nan, np.nan]
 		
-		if len(self.stock.prices[code]) >= 21:
-			self.stock.prices[code].pop(0)
-			
-		if len(self.stock.prices[code]) == 20:
-			if time not in self.stock.min_chart[code].keys():
-				self.stock.min_chart[code][time] = {}
-			sum = 0
-			
-			for i, ele in enumerate(self.stock.prices[code]):
-				sum += int(ele[1])
-				if i == 4:
-					self.stock.min_chart[code][time]['5평가'] = sum / 5
-			self.stock.min_chart[code][time]['20평가'] = sum / 20
-			
-			
-			if time >= "0920":
-				if code in self.account.stock_dict:
-					self.have_to_sell(code, time, int(price))
-				else:
-					self.have_to_buy(code, time, int(price))
+		if len(self.stock.min_chart[sCode].index) >= 20:
+			self.stock.min_chart[sCode].loc[time]['현재가'] = price
+			self.stock.min_chart[sCode].loc[time]['5이평'] = self.stock.min_chart[sCode]['현재가'][-5:].mean()
+			self.stock.min_chart[sCode].loc[time]['20이평'] = self.stock.min_chart[sCode]['현재가'][-20:].mean()
+	
+			if sCode in self.account.stock_dict:
+				self.have_to_sell(sCode, time, price)
+			else:
+				self.have_to_buy(sCode, time, price)
