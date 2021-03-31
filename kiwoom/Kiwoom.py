@@ -341,7 +341,7 @@ class Kiwoom(QAxWidget):
 		time = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['체결시간'])[:4]  # 시 분
 		price = int(self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['현재가'])[1:])
 		
-		if sCode not in self.stock.min_chart[sCode].index:
+		if time not in self.stock.min_chart[sCode].index:
 			self.stock.min_chart[sCode].loc[time] = [price, np.nan, np.nan]
 		
 		if len(self.stock.min_chart[sCode].index) >= 20:
