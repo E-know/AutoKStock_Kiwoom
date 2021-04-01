@@ -100,16 +100,13 @@ class Kiwoom(QAxWidget):
 				self.real_jusikchegul(sCode, sRealType, sRealData)
 			else:
 				self.dynamicCall("SetRealRemove(QString, QString)", "ALL", sCode)
-	
-	# 	if sCode in self.stock.jongmok and self.stock.flag[sCode]:
-	# 		self.real_jusikchegul(sCode, sRealType, sRealData)
-	# elif sRealType == '장시작시간':
-	# 	self.real_isOpen(sCode, sRealType, sRealData)
+		elif sRealType == '장시작시간':
+			self.real_open(sCode, sRealType, sRealData)
 	
 	def get_name(self, code):
 		return self.dynamicCall("GetMasterCodeName(QString)", code).strip()
 	
-	def real_isOpen(self, sCode, sRealType, sRealData):
+	def real_open(self, sCode, sRealType, sRealData):
 		self.isOpen = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['장운영구분']).strip()
 		self.log.debug("장 운영 구분 : " + self.isOpen)
 	
@@ -157,6 +154,7 @@ class Kiwoom(QAxWidget):
 			elif status == '1':  # 매도
 				# earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
 				msg = "채잔-[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity
+				self.account.stock_dict.pop(code)
 				self.bot.send(msg)
 				self.log.debug(msg)
 	
@@ -309,29 +307,34 @@ class Kiwoom(QAxWidget):
 			return
 		
 		if sCode in self.account.stock_dict:
-			# TODO 보유수량 바꾸기
-			status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen.buy_sell, self.account.account_num, 2, sCode, 10, nPrice, '03', sOrderNum])
-			# 03 : 시장가 / 00 : 지정가
-			if status == 0:
-				self.log.debug("[매도]" + sCode + "주문이 접수되었습니다.")
-				self.account.stock_dict.pop(sCode)
-				self.loop.trade.append([sCode, time])
-			elif status == -308:
-				self.log.debug("[%s] 매도 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 매도/수 시도" % (sCode))
-			else:
-				self.log.debug("%s[%s] 매도중에 알 수 없는 에러가 발생했습니다. ErrorCode %d" % (self.account.stock_dict[sCode]['종목명'], sCode, status))
+			if '보유수량' in self.stock_dict[sCode]:
+				# TODO 보유수량 바꾸기
+				status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen.buy_sell, self.account.account_num, 2, sCode, 10, nPrice, '03', sOrderNum])
+				# 03 : 시장가 / 00 : 지정가
+				if status == 0:
+					self.log.debug("[매도]" + sCode + "주문이 접수되었습니다.")
+					self.account.stock_dict.pop(sCode)
+					self.loop.trade.append([sCode, time])
+				elif status == -308:
+					self.log.debug("[%s] 매도 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 매도/수 시도" % (sCode))
+				else:
+					self.log.debug("%s[%s] 매도중에 알 수 없는 에러가 발생했습니다. ErrorCode %d" % (self.account.stock_dict[sCode]['종목명'], sCode, status))
 		
 		self.loop.sem_sell[sCode].release()
 	
 	def have_to_sell(self, sCode, time, price):
 		one_m_ago = self.stock.m_ago(time)
 		two_m_ago = self.stock.m_ago(time, min=2)
+		if one_m_ago not in self.stock.min_chart[sCode].index or two_m_ago not in self.stock.min_chart[sCode].index:
+			return
 		if self.stock.min_chart[sCode].loc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].loc[two_m_ago]['5이평'] or \
 			self.stock.min_chart[sCode].loc[time]['20이평'] > self.stock.min_chart[sCode].loc[time]['5이평']:
 			self.sell_stock(sCode, time, price)
 	
 	def have_to_buy(self, sCode, time, price):
 		one_m_ago = self.stock.m_ago(time)
+		if one_m_ago not in self.stock.min_chart[sCode].index:
+			return
 		if self.stock.min_chart[sCode].loc[time]['5이평'] > self.stock.min_chart[sCode].loc[time]['20이평'] and \
 			self.stock.min_chart[sCode].loc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].loc[one_m_ago]['20이평']:
 			self.buy_Stock(sCode, 10, time, price)
