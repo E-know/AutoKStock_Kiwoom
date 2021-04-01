@@ -306,8 +306,7 @@ class Kiwoom(QAxWidget):
 			return
 		
 		if sCode in self.account.stock_dict:
-			if '보유수량' in self.accout.stock_dict[sCode]:
-				# TODO 보유수량 바꾸기
+			if '보유수량' in self.account.stock_dict[sCode]:
 				status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen.buy_sell, self.account.account_num, 2, sCode, self.account.stock_dict[sCode]['보유수량'], nPrice, '03', sOrderNum])
 				# 03 : 시장가 / 00 : 지정가
 				if status == 0:
@@ -324,14 +323,14 @@ class Kiwoom(QAxWidget):
 		one_m_ago = len(self.stock.min_chart[sCode].index) - 1
 		two_m_ago = one_m_ago - 1
 		if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] or self.stock.min_chart[sCode].loc[time]['20이평'] > self.stock.min_chart[sCode].loc[time]['5이평']:
-			self.sell_stock(sCode, time, price)
+			self.sell_stock(sCode, time)
 	
 	def have_to_buy(self, sCode, time, price):
 		one_m_ago = self.stock.m_ago(time)
 		if one_m_ago not in self.stock.min_chart[sCode].index:
 			return
-		if self.stock.min_chart[sCode].loc[time]['5이평'] > self.stock.min_chart[sCode].loc[time]['20이평'] and \
-			self.stock.min_chart[sCode].loc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].loc[one_m_ago]['20이평']:
+		if self.stock.min_chart[sCode].loc[time, '5이평'] > self.stock.min_chart[sCode].loc[time, '20이평'] and \
+			self.stock.min_chart[sCode].loc[one_m_ago, '5이평'] < self.stock.min_chart[sCode].loc[one_m_ago, '20이평']:
 			self.buy_Stock(sCode, 10, time, price)
 	
 	def real_jusikchegul(self, sCode, sRealType, sRealData):
@@ -343,9 +342,9 @@ class Kiwoom(QAxWidget):
 			self.stock.min_chart[sCode].loc[time] = [price, np.nan, np.nan, False, False]
 		
 		if len(self.stock.min_chart[sCode].index) >= 20:
-			self.stock.min_chart[sCode].loc[time]['현재가'] = price
-			self.stock.min_chart[sCode].loc[time]['5이평'] = self.stock.min_chart[sCode]['현재가'][-5:].mean()
-			self.stock.min_chart[sCode].loc[time]['20이평'] = self.stock.min_chart[sCode]['현재가'][-20:].mean()
+			self.stock.min_chart[sCode].loc[time, '현재가'] = price
+			self.stock.min_chart[sCode].loc[time, '5이평'] = self.stock.min_chart[sCode]['현재가'][-5:].mean()
+			self.stock.min_chart[sCode].loc[time, '20이평'] = self.stock.min_chart[sCode]['현재가'][-20:].mean()
 	
 			if sCode in self.account.stock_dict:
 				self.have_to_sell(sCode, time, price)
