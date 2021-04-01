@@ -147,7 +147,7 @@ class Kiwoom(QAxWidget):
 			quantity = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['체결량']).strip()
 			status = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['매도수구분']).strip()
 			if status == '2':  # 매수
-				self.account.stock_dict[code] = {'종목명': name, '보유수량': quantity, '체결가': price}
+				self.account.stock_dict[code] = {'종목명': name, '보유수량': int(quantity), '체결가': price}
 				msg = "채잔-[매수]" + name + " 체결가 : " + price + " 수량 : " + quantity
 				self.bot.send(msg)
 				self.log.debug(msg)
@@ -281,7 +281,7 @@ class Kiwoom(QAxWidget):
 	def buy_Stock(self, sCode, nQty, time, nPrice=0, sOrderNum=""):  # sOrderNum 매수정정 때 쓰임
 		self.loop.sem_buy[sCode].acquire()
 		
-		if sCode in self.account.stock_dict or [sCode, time] in self.loop.trade:
+		if sCode in self.account.stock_dict or self.stock.min_chart[sCode].loc[time]['매수'] is True or self.stock.min_chart[sCode].loc[time]['매도'] is True:
 			self.loop.sem_buy[sCode].release()
 			return
 		
@@ -290,8 +290,7 @@ class Kiwoom(QAxWidget):
 			# 03 시장가 / 00 지정가
 			if status == 0:
 				self.log.debug("[매수]" + sCode + "주문이 접수되었습니다.")
-				self.account.stock_dict[sCode] = {}  # TODO 이거 수정해야함 안에 얼마에 샀는지 등 몇개를 샀는지
-				self.loop.trade.append([sCode, time])
+				self.stock.min_chart[sCode].loc[time]['매수'] = True
 			elif status == -308:
 				self.log.debug("%s 매수 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 매도/수 시도" % sCode)
 			else:
@@ -302,19 +301,18 @@ class Kiwoom(QAxWidget):
 	def sell_stock(self, sCode, time, nPrice=0, sOrderNum=""):
 		self.loop.sem_sell[sCode].acquire()
 		
-		if sCode not in self.account.stock_dict or [sCode, time] in self.loop.trade:
+		if self.stock.min_chart[sCode].loc[time]['매수'] is True or self.stock.min_chart[sCode].loc[time]['매도'] is True:
 			self.loop.sem_sell[sCode].release()
 			return
 		
 		if sCode in self.account.stock_dict:
-			if '보유수량' in self.stock_dict[sCode]:
+			if '보유수량' in self.accout.stock_dict[sCode]:
 				# TODO 보유수량 바꾸기
-				status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen.buy_sell, self.account.account_num, 2, sCode, 10, nPrice, '03', sOrderNum])
+				status = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", ["매도", self.screen.buy_sell, self.account.account_num, 2, sCode, self.account.stock_dict[sCode]['보유수량'], nPrice, '03', sOrderNum])
 				# 03 : 시장가 / 00 : 지정가
 				if status == 0:
 					self.log.debug("[매도]" + sCode + "주문이 접수되었습니다.")
-					self.account.stock_dict.pop(sCode)
-					self.loop.trade.append([sCode, time])
+					self.stock.min_chart[sCode].loc[time]['매도'] = True
 				elif status == -308:
 					self.log.debug("[%s] 매도 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 매도/수 시도" % (sCode))
 				else:
@@ -323,12 +321,9 @@ class Kiwoom(QAxWidget):
 		self.loop.sem_sell[sCode].release()
 	
 	def have_to_sell(self, sCode, time, price):
-		one_m_ago = self.stock.m_ago(time)
-		two_m_ago = self.stock.m_ago(time, min=2)
-		if one_m_ago not in self.stock.min_chart[sCode].index or two_m_ago not in self.stock.min_chart[sCode].index:
-			return
-		if self.stock.min_chart[sCode].loc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].loc[two_m_ago]['5이평'] or \
-			self.stock.min_chart[sCode].loc[time]['20이평'] > self.stock.min_chart[sCode].loc[time]['5이평']:
+		one_m_ago = len(self.stock.min_chart[sCode].index) - 1
+		two_m_ago = one_m_ago - 1
+		if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] or self.stock.min_chart[sCode].loc[time]['20이평'] > self.stock.min_chart[sCode].loc[time]['5이평']:
 			self.sell_stock(sCode, time, price)
 	
 	def have_to_buy(self, sCode, time, price):
@@ -345,7 +340,7 @@ class Kiwoom(QAxWidget):
 		price = int(self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['현재가'])[1:])
 		
 		if time not in self.stock.min_chart[sCode].index:
-			self.stock.min_chart[sCode].loc[time] = [price, np.nan, np.nan]
+			self.stock.min_chart[sCode].loc[time] = [price, np.nan, np.nan, False, False]
 		
 		if len(self.stock.min_chart[sCode].index) >= 20:
 			self.stock.min_chart[sCode].loc[time]['현재가'] = price
