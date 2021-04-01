@@ -249,7 +249,7 @@ class Kiwoom(QAxWidget):
 			data.update({"종목명": name, "현재가": price})
 			self.stock.jongmok[code] = data
 			
-			self.stock.min_chart[code] = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '20이평'])
+			self.stock.min_chart[code] = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '20이평', '매수', '매도'])
 			self.loop.sem_buy[code] = threading.Semaphore(1)
 			self.loop.sem_sell[code] = threading.Semaphore(1)
 		
@@ -274,7 +274,7 @@ class Kiwoom(QAxWidget):
 			if time[0:8] != self.stock.date:
 				continue
 			now_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]  # 종가
-			self.stock.min_chart[code].loc[time[-6:-2]] = [int(now_price), np.nan, np.nan]
+			self.stock.min_chart[code].loc[time[-6:-2]] = [int(now_price), np.nan, np.nan, False, False]
 		
 		self.loop.min_chart.exit()
 	
