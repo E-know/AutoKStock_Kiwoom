@@ -154,7 +154,9 @@ class Kiwoom(QAxWidget):
 			elif status == '1':  # 매도
 				# earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
 				msg = "채잔-[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity
-				self.account.stock_dict.pop(code)
+				self.account.stock_dict[code]['보유수량'] -= int(quantity)
+				if self.account.stock_dict[code]['보유수량'] <= 0:
+					self.account.stock_dict.pop(code)
 				self.bot.send(msg)
 				self.log.debug(msg)
 	
@@ -235,19 +237,15 @@ class Kiwoom(QAxWidget):
 	
 	def tr_get_jongmok(self, sTrCode, sRQName):
 		self.log.debug("전일대비등략률상위요청[TR]")
-		for i in range(100):
-			if len(self.stock.jongmok) == 5:
-				break
-			
-			data = {}
+		for i in range(5):
+
 			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
 			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명").strip()
 			if name.__contains__('ETN') or name.__contains__('KODEX') or name.__contains__('TIGER'):
 				continue
 			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]
 			
-			data.update({"종목명": name, "현재가": price})
-			self.stock.jongmok[code] = data
+			self.stock.jongmok[code] = {'종목명': name, '현재가': price}
 			
 			self.stock.min_chart[code] = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '20이평', '매수', '매도'])
 			self.loop.sem_buy[code] = threading.Semaphore(1)
@@ -322,15 +320,16 @@ class Kiwoom(QAxWidget):
 	def have_to_sell(self, sCode, time, price):
 		one_m_ago = len(self.stock.min_chart[sCode].index) - 1
 		two_m_ago = one_m_ago - 1
-		if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] or self.stock.min_chart[sCode].loc[time]['20이평'] > self.stock.min_chart[sCode].loc[time]['5이평']:
+		if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] or self.stock.min_chart[sCode].loc[time, '20이평'] > self.stock.min_chart[sCode].loc[time, '5이평']:
 			self.sell_stock(sCode, time)
 	
 	def have_to_buy(self, sCode, time, price):
-		one_m_ago = self.stock.m_ago(time)
-		if one_m_ago not in self.stock.min_chart[sCode].index:
-			return
-		if self.stock.min_chart[sCode].loc[time, '5이평'] > self.stock.min_chart[sCode].loc[time, '20이평'] and \
-			self.stock.min_chart[sCode].loc[one_m_ago, '5이평'] < self.stock.min_chart[sCode].loc[one_m_ago, '20이평']:
+		one_m_ago = None
+		i = 1
+		while one_m_ago not in self.stock.min_chart[sCode].index:
+			one_m_ago = self.stock.m_ago(time, i)
+			i += 1
+		if self.stock.min_chart[sCode].loc[time, '5이평'] > self.stock.min_chart[sCode].loc[time, '20이평'] and self.stock.min_chart[sCode].loc[one_m_ago, '5이평'] < self.stock.min_chart[sCode].loc[one_m_ago, '20이평']:
 			self.buy_Stock(sCode, 10, time, price)
 	
 	def real_jusikchegul(self, sCode, sRealType, sRealData):
