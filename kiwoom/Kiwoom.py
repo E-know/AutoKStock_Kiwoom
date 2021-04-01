@@ -320,7 +320,9 @@ class Kiwoom(QAxWidget):
 	def have_to_sell(self, sCode, time, price):
 		one_m_ago = len(self.stock.min_chart[sCode].index) - 1
 		two_m_ago = one_m_ago - 1
-		if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] or self.stock.min_chart[sCode].loc[time, '20이평'] > self.stock.min_chart[sCode].loc[time, '5이평']:
+		if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] \
+				or self.stock.min_chart[sCode].loc[time, '20이평'] > self.stock.min_chart[sCode].loc[time, '5이평'] \
+				or self.stock.min_chart[sCode].loc[time, '20이평'] > price:
 			self.sell_stock(sCode, time)
 	
 	def have_to_buy(self, sCode, time, price):
