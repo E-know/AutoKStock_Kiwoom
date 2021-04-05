@@ -248,7 +248,7 @@ class Kiwoom(QAxWidget):
 			
 			self.stock.jongmok[code] = {'종목명': name, '현재가': price}
 			
-			self.stock.min_chart[code] = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '20이평', '매수', '매도'])
+			self.stock.min_chart[code] = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '20이평', '30이평', '매수', '매도'])
 			self.loop.sem_buy[code] = threading.Semaphore(1)
 			self.loop.sem_sell[code] = threading.Semaphore(1)
 		
@@ -273,7 +273,7 @@ class Kiwoom(QAxWidget):
 			if time[0:8] != self.stock.date:
 				continue
 			now_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]  # 종가
-			self.stock.min_chart[code].loc[time[-6:-2]] = [int(now_price), np.nan, np.nan, False, False]
+			self.stock.min_chart[code].loc[time[-6:-2]] = [int(now_price), np.nan, np.nan, np.nan, False, False]
 		
 		self.loop.min_chart.exit()
 	
@@ -319,21 +319,25 @@ class Kiwoom(QAxWidget):
 		self.loop.sem_sell[sCode].release()
 	
 	def have_to_sell(self, sCode, time, price):
-		one_m_ago = len(self.stock.min_chart[sCode].index) - 1
-		two_m_ago = one_m_ago - 1
-		if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] \
-				or self.stock.min_chart[sCode].loc[time, '20이평'] > self.stock.min_chart[sCode].loc[time, '5이평'] \
-				or self.stock.min_chart[sCode].loc[time, '20이평'] > price:
-			self.sell_stock(sCode, time)
+		if self.stock.min_chart[sCode].loc[time, '30이평'] > price and self.stock.min_chart[sCode].loc[time, '매수'] is False and self.stock.min_chart[sCode].loc[time, '매도'] is False:
+			self.sell_Stock(sCode, time)
+		# one_m_ago = len(self.stock.min_chart[sCode].index) - 1
+		# two_m_ago = one_m_ago - 1
+		# if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] \
+		# 		or self.stock.min_chart[sCode].loc[time, '20이평'] > self.stock.min_chart[sCode].loc[time, '5이평'] \
+		# 		or self.stock.min_chart[sCode].loc[time, '20이평'] > price:
+		# 	self.sell_stock(sCode, time)
 	
 	def have_to_buy(self, sCode, time, price):
-		one_m_ago = None
-		i = 1
-		while one_m_ago not in self.stock.min_chart[sCode].index:
-			one_m_ago = self.stock.m_ago(time, i)
-			i += 1
-		if self.stock.min_chart[sCode].loc[time, '5이평'] > self.stock.min_chart[sCode].loc[time, '20이평'] and self.stock.min_chart[sCode].loc[one_m_ago, '5이평'] < self.stock.min_chart[sCode].loc[one_m_ago, '20이평']:
+		if self.stock.min_chart[sCode].loc[time, '30이평'] < price and self.stock.min_chart[sCode].loc[time, '매수'] is False and self.stock.min_chart[sCode].loc[time, '매도'] is False:
 			self.buy_Stock(sCode, 10, time, price)
+		# one_m_ago = None
+		# i = 1
+		# while one_m_ago not in self.stock.min_chart[sCode].index:
+		# 	one_m_ago = self.stock.m_ago(time, i)
+		# 	i += 1
+		# if self.stock.min_chart[sCode].loc[time, '5이평'] > self.stock.min_chart[sCode].loc[time, '20이평'] and self.stock.min_chart[sCode].loc[one_m_ago, '5이평'] < self.stock.min_chart[sCode].loc[one_m_ago, '20이평']:
+		# 	self.buy_Stock(sCode, 10, time, price)
 	
 	def real_jusikchegul(self, sCode, sRealType, sRealData):
 		print(sCode)
@@ -341,12 +345,13 @@ class Kiwoom(QAxWidget):
 		price = int(self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['현재가'])[1:])
 		
 		if time not in self.stock.min_chart[sCode].index:
-			self.stock.min_chart[sCode].loc[time] = [price, np.nan, np.nan, False, False]
+			self.stock.min_chart[sCode].loc[time] = [price, np.nan, np.nan, np.nan, False, False]
 		
-		if len(self.stock.min_chart[sCode].index) >= 20:
+		if len(self.stock.min_chart[sCode].index) >= 30:
 			self.stock.min_chart[sCode].loc[time, '현재가'] = price
 			self.stock.min_chart[sCode].loc[time, '5이평'] = self.stock.min_chart[sCode]['현재가'][-5:].mean()
 			self.stock.min_chart[sCode].loc[time, '20이평'] = self.stock.min_chart[sCode]['현재가'][-20:].mean()
+			self.stock.min_chart[sCode].loc[time, '30이평'] = self.stock.min_chart[sCode]['현재가'][-30:].mean()
 	
 			if sCode in self.account.stock_dict:
 				self.have_to_sell(sCode, time, price)
