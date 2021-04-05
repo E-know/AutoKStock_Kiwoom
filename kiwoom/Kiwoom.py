@@ -148,15 +148,16 @@ class Kiwoom(QAxWidget):
 			status = self.dynamicCall("GetChejanData(int)", self.realType.REALTYPE['주문체결']['매도수구분']).strip()
 			if status == '2':  # 매수
 				self.account.stock_dict[code] = {'종목명': name, '보유수량': int(quantity), '체결가': price}
-				msg = "채잔-[매수]" + name + " 체결가 : " + price + " 수량 : " + quantity
+				msg = "[매수]" + name + " 체결가 : " + price + " 수량 : " + quantity
 				self.bot.send(msg)
 				self.log.debug(msg)
 			elif status == '1':  # 매도
 				# earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
-				msg = "채잔-[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity
-				self.account.stock_dict[code]['보유수량'] -= int(quantity)
-				if self.account.stock_dict[code]['보유수량'] <= 0:
-					self.account.stock_dict.pop(code)
+				msg = "[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity + " 매수 금액 : " + self.account.stock_dict[code]['체결가']
+				if code in self.account.stock_dict:
+					self.account.stock_dict[code]['보유수량'] -= int(quantity)
+					if self.account.stock_dict[code]['보유수량'] <= 0:
+						self.account.stock_dict.pop(code)
 				self.bot.send(msg)
 				self.log.debug(msg)
 	
