@@ -1,9 +1,5 @@
+# 매수 매도 전략 Ver 0.20
 ![dsBuffer bmp](https://user-images.githubusercontent.com/55151796/113850320-4c5e2a80-97d5-11eb-98f4-9f499b2920d0.png)
-
-# 매수 매도 전략 Ver 0.01
-<img src="https://user-images.githubusercontent.com/55151796/112978240-0e885300-9192-11eb-9542-c2df2fdef248.png">
-* 이평 = 이동평균선 ( 20이평 = 20분 이동평균선)
-
 ## 개선 사항  
 1. 가격 데이터 전체를 판다스로 옮김 ( 5이평 10이평 현재가 등 모두 )
 2. 30이평 데이터 추가
