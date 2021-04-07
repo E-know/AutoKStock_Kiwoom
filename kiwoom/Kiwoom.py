@@ -101,13 +101,16 @@ class Kiwoom(QAxWidget):
 			else:
 				self.dynamicCall("SetRealRemove(QString, QString)", "ALL", sCode)
 		elif sRealType == '장시작시간':
-			self.real_open(sCode, sRealType, sRealData)
+			self.real_operating_status(sCode, sRealType, sRealData)
 	
 	def get_name(self, code):
 		return self.dynamicCall("GetMasterCodeName(QString)", code).strip()
 	
-	def real_open(self, sCode, sRealType, sRealData):
+	def real_operating_status(self, sCode, sRealType, sRealData):
 		self.isOpen = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['장운영구분']).strip()
+		if self.isOpen == '8': # 정규 장 마감
+			for sCode in self.stock.min_chart:
+				self.stock.min_chart[sCode].to_csv('./stock_data/' + self.stock.date + sCode + self.get_name(sCode) + '.csv')
 		self.log.debug("장 운영 구분 : " + self.isOpen)
 	
 	def signal_login_commConnect(self):
@@ -153,7 +156,9 @@ class Kiwoom(QAxWidget):
 				self.log.debug(msg)
 			elif status == '1':  # 매도
 				# earn = (int(price) - int(self.account.stock_dict[code]['체결가']) * 1.015 - int(price) * 0.315) * int(quantity)
-				msg = "[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity + " 매수 금액 : " + self.account.stock_dict[code]['체결가']
+				msg = "[매도]" + name + " 체결가 : " + price + " 수량 : " + quantity
+				if code in self.account.stock_dict:
+					msg += " 매수 금액 : " + self.account.stock_dict[code]['체결가']
 				if code in self.account.stock_dict:
 					self.account.stock_dict[code]['보유수량'] -= int(quantity)
 					if self.account.stock_dict[code]['보유수량'] <= 0:
@@ -241,7 +246,7 @@ class Kiwoom(QAxWidget):
 	
 	def tr_get_jongmok(self, sTrCode, sRQName):
 		self.log.debug("전일대비등략률상위요청[TR]")
-		for i in range(5):
+		for i in range(8):
 
 			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
 			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명").strip()
@@ -332,7 +337,9 @@ class Kiwoom(QAxWidget):
 		# 	self.sell_stock(sCode, time)
 	
 	def have_to_buy(self, sCode, time, price):
-		if self.stock.min_chart[sCode].loc[time, '30이평'] < price:
+		one_min_ago = len(self.stock.min_chart[sCode].index) - 2
+		if self.stock.min_chart[sCode].loc[time, '30이평'] < price and\
+				self.stock.min_chart[sCode].iloc[one_min_ago]['30이평'] > self.stock.min_chart[sCode].iloc[one_min_ago]['현재가']:
 			self.buy_stock(sCode, 10, time, price)
 		# one_m_ago = None
 		# i = 1
