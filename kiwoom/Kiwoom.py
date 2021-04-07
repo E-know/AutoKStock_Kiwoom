@@ -10,6 +10,7 @@ from data.Eventloop import *
 import threading
 import pandas as pd
 import numpy as np
+from datetime import date, datetime
 
 class Kiwoom(QAxWidget):
 	def __init__(self):
@@ -25,8 +26,8 @@ class Kiwoom(QAxWidget):
 		self.screen = Screen()
 		self.stock = Stock()
 		self.loop = Eventloop()
-		self.isOpen = '3'
-		self.oldtime = None
+		self.operation_status = '3'
+		self.date = str(date.today().year) + str(date.today().month).zfill(2) + str(date.today().day).zfill(2)
 		
 		self.get_ocx_instance()  # OCX 방식을 파이썬에 사용할 수 있게 변환해 주는 함수
 		self.event_slots()  # 키움과 연결하기 위한 시그널 / 슬롯 모음
@@ -41,45 +42,42 @@ class Kiwoom(QAxWidget):
 		print("MAIN CODE IS END")
 	
 	def running(self):
-		if self.isOpen == '3':
-			while self.stock.get_time_with_sec() <= "090000":
+		if self.operation_status == '3': # 장 시작
+			
+			while datetime.now().hour <= 9 and datetime.now().minute < 30:
 				pass
-			print("START")
+			
 			self.get_jongmok()
 			self.dynamicCall("DisconnectRealData(QString)", self.screen.jongmok)
 			
-			for code in self.stock.jongmok:
-				self.min_chart(code)
+			for sCode in self.stock.jongmok:
+				self.min_chart(sCode)
 				self.dynamicCall("DisconnectRealData(QString)", self.screen.min_chart)
 				QTest.qWait(1000)
 			
 			self.dynamicCall("DisconnectRealData(QString)", self.screen.jongmok)
 			self.dynamicCall("DisconnectRealData(QString)", self.screen.min_chart)
 			self.dynamicCall("SetRealRemove(QString, QString", "ALL", "ALL")
+			
 			QTest.qWait(2000)
 			print(self.stock.jongmok)
 			
-			for code in self.stock.jongmok:
-				self.dynamicCall("SetRealReg(QString, QString, QString, QString)", [self.screen.realchart, code, self.realType.REALTYPE['주식체결']['현재가'], "1"])
+			for sCode in self.stock.jongmok:
+				self.dynamicCall("SetRealReg(QString, QString, QString, QString)", [self.screen.jusikchegul, sCode, self.realType.REALTYPE['주식체결']['현재가'], "1"])
 		
 		
-		elif self.isOpen == '2':
+		elif self.operation_status == '2':
 			self.log.debug('동시호가에 진입했습니다.')
-			self.isOpen = None
-			
-			while self.isOpen is None:
-				pass
 		# 동시호가
-		elif self.isOpen == '4':
+		elif self.operation_status == '4' or self.operation_status == '8': # 4  정규 장 마감 / # 8 장후 시간외 거래
 			self.log.debug('장이 마감되었습니다.')
 			self.bot.send("장이 마감되었습니다.")
 			self.dynamicCall("SetRealReg(QString, QString, QString, QString)", self.screen.open, '005930', self.realType.REALTYPE['장시작시간']['장운영구분'], "0")
-			while self.isOpen == '4':
+			
+		elif self.operation_status == '0':
+			while self.operation_status == '0':
 				pass
-		elif self.isOpen == '0':
-			while self.isOpen == '0':
-				pass
-	
+
 	# 장 마감
 	
 	def get_ocx_instance(self):
@@ -107,11 +105,21 @@ class Kiwoom(QAxWidget):
 		return self.dynamicCall("GetMasterCodeName(QString)", code).strip()
 	
 	def real_operating_status(self, sCode, sRealType, sRealData):
-		self.isOpen = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['장운영구분']).strip()
-		if self.isOpen == '8': # 정규 장 마감
+		self.operation_status = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['장운영구분']).strip()
+		self.log.debug("장 운영 구분 : " + self.operation_status)
+		if self.operation_status == '3': # 정규장 시작
+			self.bot.send("정규장이 시작되었습니다")
+			self.log.debug("정규장이 시작되었습니다.")
+			
+		elif self.operation_status == '4': # 정규장 종료
 			for sCode in self.stock.min_chart:
-				self.stock.min_chart[sCode].to_csv('./stock_data/' + self.stock.date + sCode + self.get_name(sCode) + '.csv')
-		self.log.debug("장 운영 구분 : " + self.isOpen)
+				self.stock.min_chart[sCode].to_csv('./stock_data/' + self.date + sCode + self.get_name(sCode) + '.csv')
+			self.log.debug("정규장이 마감되었습니다. 데이터를 저장합니다.")
+			self.bot.send("정규장이 마감되었습니다.")
+			
+		elif self.operation_status == '8': # 장시간외 거래 시작
+			pass
+		
 	
 	def signal_login_commConnect(self):
 		self.dynamicCall("CommConnect()")
@@ -228,8 +236,6 @@ class Kiwoom(QAxWidget):
 		else:
 			self.loop.account_info.exit()
 			
-	def get_pd_new_iterrow(self, now_price, ave_price5=np.nan, ave_price10=np.nan, ave_price20=np.nan, ave_price30=np.nan, flag_buy=False, flag_sell=False):
-		return [now_price, ave_price5, ave_price10, ave_price20, ave_price30, flag_buy, flag_sell]
 	
 	def get_jongmok(self):
 		self.dynamicCall("SetInputValue(QString, QString)", "시장구분", "000")
@@ -263,7 +269,6 @@ class Kiwoom(QAxWidget):
 		self.loop.jongmok.exit()
 	
 	def min_chart(self, code):
-		
 		self.dynamicCall("SetInputValue(QString, QString", "종목코드", code)
 		self.dynamicCall("SetInputValue(QString, QString", "틱범위", "1")
 		self.dynamicCall("SetInputValue(QString, QString", "수정주가구분", "0")
@@ -278,10 +283,10 @@ class Kiwoom(QAxWidget):
 		# rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)  # 900
 		for i in range(29, -1, -1):
 			time = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "체결시간").strip()
-			if time[0:8] != self.stock.date:
+			if time[0:8] != self.date:
 				continue
 			now_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]  # 종가
-			self.stock.min_chart[code].loc[time[-6:-2]] = self.get_pd_new_iterrow(now_price=int(now_price))
+			self.stock.min_chart[code].loc[time[-6:-2]] = self.stock.get_pd_new_iterrow(now_price=int(now_price))
 		
 		self.loop.min_chart.exit()
 	
@@ -329,33 +334,20 @@ class Kiwoom(QAxWidget):
 	def have_to_sell(self, sCode, time, price):
 		if self.stock.min_chart[sCode].loc[time, '10이평'] < self.stock.min_chart[sCode].loc[time, '20이평']:
 			self.sell_stock(sCode, time)
-		# one_m_ago = len(self.stock.min_chart[sCode].index) - 1
-		# two_m_ago = one_m_ago - 1
-		# if self.stock.min_chart[sCode].iloc[one_m_ago]['5이평'] < self.stock.min_chart[sCode].iloc[two_m_ago]['5이평'] \
-		# 		or self.stock.min_chart[sCode].loc[time, '20이평'] > self.stock.min_chart[sCode].loc[time, '5이평'] \
-		# 		or self.stock.min_chart[sCode].loc[time, '20이평'] > price:
-		# 	self.sell_stock(sCode, time)
-	
+			
 	def have_to_buy(self, sCode, time, price):
-		one_min_ago = len(self.stock.min_chart[sCode].index) - 2
+		one_min_ago_idx = len(self.stock.min_chart[sCode].index) - 2
 		if self.stock.min_chart[sCode].loc[time, '30이평'] < price and\
-				self.stock.min_chart[sCode].iloc[one_min_ago]['30이평'] > self.stock.min_chart[sCode].iloc[one_min_ago]['현재가']:
+				self.stock.min_chart[sCode].iloc[one_min_ago_idx]['30이평'] > self.stock.min_chart[sCode].iloc[one_min_ago_idx]['현재가']:
 			self.buy_stock(sCode, 10, time, price)
-		# one_m_ago = None
-		# i = 1
-		# while one_m_ago not in self.stock.min_chart[sCode].index:
-		# 	one_m_ago = self.stock.m_ago(time, i)
-		# 	i += 1
-		# if self.stock.min_chart[sCode].loc[time, '5이평'] > self.stock.min_chart[sCode].loc[time, '20이평'] and self.stock.min_chart[sCode].loc[one_m_ago, '5이평'] < self.stock.min_chart[sCode].loc[one_m_ago, '20이평']:
-		# 	self.buy_Stock(sCode, 10, time, price)
 	
 	def real_jusikchegul(self, sCode, sRealType, sRealData):
-		print(sCode)
+		print(sCode, sRealData)
 		time = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['체결시간'])[:4]  # 시 분
 		price = int(self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['현재가'])[1:])
 		
 		if time not in self.stock.min_chart[sCode].index:
-			self.stock.min_chart[sCode].loc[time] = self.get_pd_new_iterrow(now_price=price)
+			self.stock.min_chart[sCode].loc[time] = self.stock.get_pd_new_iterrow(now_price=price)
 		
 		if len(self.stock.min_chart[sCode].index) >= 30:
 			self.stock.min_chart[sCode].loc[time, '현재가'] = price

@@ -11,6 +11,6 @@ class Screen:
 		
 		self.buy_sell = "5000"
 		
-		self.realchart = "4000"
+		self.jusikchegul = "4000"
 		
 		
