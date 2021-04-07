@@ -78,8 +78,7 @@ class Kiwoom(QAxWidget):
 			while self.operation_status == '0':
 				pass
 
-	# 장 마감
-	
+	#------------------ 기본 함수 ------------------
 	def get_ocx_instance(self):
 		self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
 	
@@ -103,24 +102,7 @@ class Kiwoom(QAxWidget):
 	
 	def get_name(self, code):
 		return self.dynamicCall("GetMasterCodeName(QString)", code).strip()
-	
-	def real_operating_status(self, sCode, sRealType, sRealData):
-		self.operation_status = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['장운영구분']).strip()
-		self.log.debug("장 운영 구분 : " + self.operation_status)
-		if self.operation_status == '3': # 정규장 시작
-			self.bot.send("정규장이 시작되었습니다")
-			self.log.debug("정규장이 시작되었습니다.")
-			
-		elif self.operation_status == '4': # 정규장 종료
-			for sCode in self.stock.min_chart:
-				self.stock.min_chart[sCode].to_csv('./stock_data/' + self.date + sCode + self.get_name(sCode) + '.csv')
-			self.log.debug("정규장이 마감되었습니다. 데이터를 저장합니다.")
-			self.bot.send("정규장이 마감되었습니다.")
-			
-		elif self.operation_status == '8': # 장시간외 거래 시작
-			pass
 		
-	
 	def signal_login_commConnect(self):
 		self.dynamicCall("CommConnect()")
 		self.loop.login.exec_()
@@ -174,122 +156,6 @@ class Kiwoom(QAxWidget):
 				self.bot.send(msg)
 				self.log.debug(msg)
 	
-	def get_account_info(self):
-		account_list = self.dynamicCall("GetLoginInfo(QString)", "ACCNO")
-		self.account.account_num = account_list.split(';')[0]
-		print("계좌번호 %s" % self.account.account_num)
-		
-		self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account.account_num)
-		self.dynamicCall("SetInputValue(QString, QString)", "비밀번호", "0000")
-		self.dynamicCall("SetInputValue(QString, QString)", "비밀번호입력매체구분", "00")
-		self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "1")
-		self.dynamicCall("CommRqData(QString, QString, int, QString)", "예수금상세현황요청", "opw00001", "0", self.screen.my_info)
-		while self.loop.account_info.isRunning():
-			pass
-		self.loop.account_info.exec_()
-	
-	def tr_get_account_info(self, sRQName, sTrCode):
-		self.account.deposit = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "예수금"))
-		self.account.money_can_buy = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "d+2출금가능금액"))
-		self.loop.account_info.exit()
-	
-	def get_stock_info(self, sPrevNext="0"):
-		self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account.account_num)
-		self.dynamicCall("SetInputValue(QString, QString)", "비밀번호", "0000")
-		self.dynamicCall("SetInputValue(QString, QString)", "비밀번호입력매체구분", "00")
-		self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "1")
-		
-		while self.loop.account_info.isRunning():
-			pass
-		self.dynamicCall("CommRqData(QString, QString, int, QString)", "계좌평가잔고내역요청", "opw00018", sPrevNext, self.screen.my_info)
-		self.loop.account_info.exec_()
-	
-	def tr_get_stock_info(self, sRQName, sTrCode, sPrevNext="0"):
-		self.account.profit_money = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총평가손익금액"))
-		self.account.profit_rate = float(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총수익률(%)"))
-		self.account.money_stock = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총평가금액"))
-		
-		rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)
-		if rows == 0:
-			self.log.debug("No Stock!")
-		for i in range(rows):
-			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목번호").strip()[1:]
-			if code in self.account.stock_dict:
-				continue
-			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명")
-			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "매입가").strip()
-			stock_quantity = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "보유수량")
-			profit = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "평가손익")
-			earn_rate = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "수익률(%)")
-			
-			self.account.stock_dict[code] = {}
-			self.account.stock_dict[code].update({"종목명": name.strip()})
-			self.account.stock_dict[code].update({'체결가': price})
-			self.account.stock_dict[code].update({"보유수량": int(stock_quantity.strip())})
-			self.account.stock_dict[code].update({"평가손익": int(profit.strip())})
-			self.account.stock_dict[code].update({"수익률(%)": float(earn_rate.strip())})
-			
-			self.log.debug(self.account.stock_dict[code])
-		
-		if sPrevNext == "2":
-			self.get_stock_info(sPrevNext="2")
-		else:
-			self.loop.account_info.exit()
-			
-	
-	def get_jongmok(self):
-		self.dynamicCall("SetInputValue(QString, QString)", "시장구분", "000")
-		self.dynamicCall("SetInputValue(QString, QString)", "정렬구분", "1")
-		self.dynamicCall("SetInputValue(QString, QString)", "거래량조건", "0000")
-		self.dynamicCall("SetInputValue(QString, QString)", "종목조건", "4")
-		self.dynamicCall("SetInputValue(QString, QString)", "신용조건", "0")
-		self.dynamicCall("SetInputValue(QString, QString)", "상하한포함", "0")  # 상하한가 불포함
-		self.dynamicCall("SetInputValue(QString, QString)", "가격조건", "0")
-		self.dynamicCall("SetInputValue(QString, QString)", "거래대금조건", "0")
-		
-		self.dynamicCall("CommRqData(QString, QString, int, QString)", "전일대비등락률상위요청", "opt10027", "0", self.screen.jongmok)
-		self.loop.jongmok.exec_()
-	
-	def tr_get_jongmok(self, sTrCode, sRQName):
-		self.log.debug("전일대비등략률상위요청[TR]")
-		for i in range(8):
-
-			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
-			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명").strip()
-			if name.__contains__('ETN') or name.__contains__('KODEX') or name.__contains__('TIGER'):
-				continue
-			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]
-			
-			self.stock.jongmok[code] = {'종목명': name, '현재가': price}
-			
-			self.stock.min_chart[code] = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '10이평', '20이평', '30이평', '매수', '매도'])
-			self.loop.sem_buy[code] = threading.Semaphore(1)
-			self.loop.sem_sell[code] = threading.Semaphore(1)
-		
-		self.loop.jongmok.exit()
-	
-	def min_chart(self, code):
-		self.dynamicCall("SetInputValue(QString, QString", "종목코드", code)
-		self.dynamicCall("SetInputValue(QString, QString", "틱범위", "1")
-		self.dynamicCall("SetInputValue(QString, QString", "수정주가구분", "0")
-		
-		self.dynamicCall("CommRqData(QString, QString, int, QString)", "주식분봉차트조회요청", "opt10080", "0", self.screen.min_chart)
-		while self.loop.min_chart.isRunning():
-			pass
-		self.loop.min_chart.exec_()
-	
-	def tr_min_chart(self, sTrCode, sRQName):
-		code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "종목코드").strip()
-		# rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)  # 900
-		for i in range(29, -1, -1):
-			time = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "체결시간").strip()
-			if time[0:8] != self.date:
-				continue
-			now_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]  # 종가
-			self.stock.min_chart[code].loc[time[-6:-2]] = self.stock.get_pd_new_iterrow(now_price=int(now_price))
-		
-		self.loop.min_chart.exit()
-	
 	def buy_stock(self, sCode, nQty, time, nPrice=0, sOrderNum=""):  # sOrderNum 매수정정 때 쓰임
 		self.loop.sem_buy[sCode].acquire()
 		
@@ -331,16 +197,91 @@ class Kiwoom(QAxWidget):
 		
 		self.loop.sem_sell[sCode].release()
 	
-	def have_to_sell(self, sCode, time, price):
-		if self.stock.min_chart[sCode].loc[time, '10이평'] < self.stock.min_chart[sCode].loc[time, '20이평']:
-			self.sell_stock(sCode, time)
-			
-	def have_to_buy(self, sCode, time, price):
-		one_min_ago_idx = len(self.stock.min_chart[sCode].index) - 2
-		if self.stock.min_chart[sCode].loc[time, '30이평'] < price and\
-				self.stock.min_chart[sCode].iloc[one_min_ago_idx]['30이평'] > self.stock.min_chart[sCode].iloc[one_min_ago_idx]['현재가']:
-			self.buy_stock(sCode, 10, time, price)
+	#------------------ TR 함수 ------------------
+	def tr_get_account_info(self, sRQName, sTrCode):
+		self.account.deposit = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "예수금"))
+		self.account.money_can_buy = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "d+2출금가능금액"))
+		self.loop.account_info.exit()
 	
+	def tr_get_stock_info(self, sRQName, sTrCode, sPrevNext="0"):
+		self.account.profit_money = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총평가손익금액"))
+		self.account.profit_rate = float(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총수익률(%)"))
+		self.account.money_stock = int(self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총평가금액"))
+		
+		rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)
+		if rows == 0:
+			self.log.debug("No Stock!")
+		for i in range(rows):
+			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목번호").strip()[1:]
+			if code in self.account.stock_dict:
+				continue
+			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명")
+			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "매입가").strip()
+			stock_quantity = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "보유수량")
+			profit = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "평가손익")
+			earn_rate = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "수익률(%)")
+			
+			self.account.stock_dict[code] = {}
+			self.account.stock_dict[code].update({"종목명": name.strip()})
+			self.account.stock_dict[code].update({'체결가': price})
+			self.account.stock_dict[code].update({"보유수량": int(stock_quantity.strip())})
+			self.account.stock_dict[code].update({"평가손익": int(profit.strip())})
+			self.account.stock_dict[code].update({"수익률(%)": float(earn_rate.strip())})
+			
+			self.log.debug(self.account.stock_dict[code])
+		
+		if sPrevNext == "2":
+			self.get_stock_info(sPrevNext="2")
+		else:
+			self.loop.account_info.exit()
+	
+	def tr_get_jongmok(self, sTrCode, sRQName):
+		self.log.debug("전일대비등략률상위요청[TR]")
+		for i in range(8):
+			
+			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
+			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명").strip()
+			if name.__contains__('ETN') or name.__contains__('KODEX') or name.__contains__('TIGER'):
+				continue
+			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]
+			
+			self.stock.jongmok[code] = {'종목명': name, '현재가': price}
+			
+			self.stock.min_chart[code] = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '10이평', '20이평', '30이평', '매수', '매도'])
+			self.loop.sem_buy[code] = threading.Semaphore(1)
+			self.loop.sem_sell[code] = threading.Semaphore(1)
+		
+		self.loop.jongmok.exit()
+	
+	def tr_min_chart(self, sTrCode, sRQName):
+		code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "종목코드").strip()
+		# rows = self.dynamicCall("GetRepeatCnt(QString, QString)", sTrCode, sRQName)  # 900
+		for i in range(29, -1, -1):
+			time = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "체결시간").strip()
+			if time[0:8] != self.date:
+				continue
+			now_price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]  # 종가
+			self.stock.min_chart[code].loc[time[-6:-2]] = self.stock.get_pd_new_iterrow(now_price=int(now_price))
+		
+		self.loop.min_chart.exit()
+	
+	# ------------------ Real 함수 ------------------
+	def real_operating_status(self, sCode, sRealType, sRealData):
+		self.operation_status = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['장운영구분']).strip()
+		self.log.debug("장 운영 구분 : " + self.operation_status)
+		if self.operation_status == '3':  # 정규장 시작
+			self.bot.send("정규장이 시작되었습니다")
+			self.log.debug("정규장이 시작되었습니다.")
+		
+		elif self.operation_status == '4':  # 정규장 종료
+			for sCode in self.stock.min_chart:
+				self.stock.min_chart[sCode].to_csv('./stock_data/' + self.date + sCode + self.get_name(sCode) + '.csv')
+			self.log.debug("정규장이 마감되었습니다. 데이터를 저장합니다.")
+			self.bot.send("정규장이 마감되었습니다.")
+			self.close_market()
+		elif self.operation_status == '8':  # 장시간외 거래 시작
+			pass
+		
 	def real_jusikchegul(self, sCode, sRealType, sRealData):
 		print(sCode, sRealData)
 		time = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['체결시간'])[:4]  # 시 분
@@ -355,8 +296,69 @@ class Kiwoom(QAxWidget):
 			self.stock.min_chart[sCode].loc[time, '10이평'] = self.stock.min_chart[sCode]['현재가'][-10:].mean()
 			self.stock.min_chart[sCode].loc[time, '20이평'] = self.stock.min_chart[sCode]['현재가'][-20:].mean()
 			self.stock.min_chart[sCode].loc[time, '30이평'] = self.stock.min_chart[sCode]['현재가'][-30:].mean()
-	
+			
 			if sCode in self.account.stock_dict:
 				self.have_to_sell(sCode, time, price)
 			else:
 				self.have_to_buy(sCode, time, price)
+		
+	#------------------ 기본 사용자 함수 ------------------
+	def get_account_info(self):
+		account_list = self.dynamicCall("GetLoginInfo(QString)", "ACCNO")
+		self.account.account_num = account_list.split(';')[0]
+		print("계좌번호 %s" % self.account.account_num)
+		
+		self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account.account_num)
+		self.dynamicCall("SetInputValue(QString, QString)", "비밀번호", "0000")
+		self.dynamicCall("SetInputValue(QString, QString)", "비밀번호입력매체구분", "00")
+		self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "1")
+		self.dynamicCall("CommRqData(QString, QString, int, QString)", "예수금상세현황요청", "opw00001", "0", self.screen.my_info)
+		while self.loop.account_info.isRunning():
+			pass
+		self.loop.account_info.exec_()
+		
+	def get_stock_info(self, sPrevNext="0"):
+		self.dynamicCall("SetInputValue(QString, QString)", "계좌번호", self.account.account_num)
+		self.dynamicCall("SetInputValue(QString, QString)", "비밀번호", "0000")
+		self.dynamicCall("SetInputValue(QString, QString)", "비밀번호입력매체구분", "00")
+		self.dynamicCall("SetInputValue(QString, QString)", "조회구분", "1")
+		
+		while self.loop.account_info.isRunning():
+			pass
+		self.dynamicCall("CommRqData(QString, QString, int, QString)", "계좌평가잔고내역요청", "opw00018", sPrevNext, self.screen.my_info)
+		self.loop.account_info.exec_()
+		
+	def get_jongmok(self):
+		self.dynamicCall("SetInputValue(QString, QString)", "시장구분", "000")
+		self.dynamicCall("SetInputValue(QString, QString)", "정렬구분", "1")
+		self.dynamicCall("SetInputValue(QString, QString)", "거래량조건", "0000")
+		self.dynamicCall("SetInputValue(QString, QString)", "종목조건", "4")
+		self.dynamicCall("SetInputValue(QString, QString)", "신용조건", "0")
+		self.dynamicCall("SetInputValue(QString, QString)", "상하한포함", "0")  # 상하한가 불포함
+		self.dynamicCall("SetInputValue(QString, QString)", "가격조건", "0")
+		self.dynamicCall("SetInputValue(QString, QString)", "거래대금조건", "0")
+		
+		self.dynamicCall("CommRqData(QString, QString, int, QString)", "전일대비등락률상위요청", "opt10027", "0", self.screen.jongmok)
+		self.loop.jongmok.exec_()
+	
+	def min_chart(self, code):
+		self.dynamicCall("SetInputValue(QString, QString", "종목코드", code)
+		self.dynamicCall("SetInputValue(QString, QString", "틱범위", "1")
+		self.dynamicCall("SetInputValue(QString, QString", "수정주가구분", "0")
+		
+		self.dynamicCall("CommRqData(QString, QString, int, QString)", "주식분봉차트조회요청", "opt10080", "0", self.screen.min_chart)
+		while self.loop.min_chart.isRunning():
+			pass
+		self.loop.min_chart.exec_()
+	
+	# ------------------ 매수 / 매도 함수 ------------------
+	def have_to_sell(self, sCode, time, price):
+		if self.stock.min_chart[sCode].loc[time, '10이평'] < self.stock.min_chart[sCode].loc[time, '20이평']:
+			self.sell_stock(sCode, time)
+			
+	def have_to_buy(self, sCode, time, price):
+		one_min_ago_idx = len(self.stock.min_chart[sCode].index) - 2
+		if self.stock.min_chart[sCode].loc[time, '30이평'] < price and\
+				self.stock.min_chart[sCode].iloc[one_min_ago_idx]['30이평'] > self.stock.min_chart[sCode].iloc[one_min_ago_idx]['현재가']:
+			self.buy_stock(sCode, 10, time, price)
+	
