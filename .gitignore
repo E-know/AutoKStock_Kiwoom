@@ -8,9 +8,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Bot
-config/telegramBot.py
-
 #stock_data
 stock_data/
 
