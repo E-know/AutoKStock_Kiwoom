@@ -11,6 +11,9 @@ __pycache__/
 # Bot
 config/telegramBot.py
 
+#stock_data
+stock_data/
+
 # C extensions
 *.so
 
