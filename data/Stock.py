@@ -1,5 +1,6 @@
 import time
 from config.telegramBot import *
+import pandas as pd
 import numpy as np
 import datetime
 
@@ -15,8 +16,4 @@ class Stock:
 	
 	def get_pd(self):
 		result = pd.DataFrame(index=['시간'], columns=['현재가', '5이평', '10이평', '20이평', '30이평', '매수', '매도'])
-		for hour in range(9, 16):
-			for min in range(0, 61):
-				result.loc[datetime.timedelta(hours=hour, minutes=min)] = np.nan
-				if min == 30 and hour == 15:
-					return result
+		return result

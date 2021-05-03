@@ -7,6 +7,7 @@ from data.Account import *
 from data.Screen import *
 from data.Stock import *
 from data.Eventloop import *
+from data.Time import *
 import threading
 import pandas as pd
 import numpy as np
@@ -242,17 +243,17 @@ class Kiwoom(QAxWidget):
 		self.log.debug("전일대비등략률상위요청[TR]")
 		for i in range(8):
 			
-			code = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
+			sCode = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목코드").strip()
 			name = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "종목명").strip()
 			if name.__contains__('ETN') or name.__contains__('KODEX') or name.__contains__('TIGER'):
 				continue
 			price = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, i, "현재가").strip()[1:]
 			
-			self.stock.jongmok[code] = {'종목명': name, '현재가': price}
+			self.stock.jongmok[sCode] = {'종목명': name, '현재가': price}
 			
-			self.stock.min_chart[code] = self.stock.get_pd()
-			self.loop.sem_buy[code] = threading.Semaphore(1)
-			self.loop.sem_sell[code] = threading.Semaphore(1)
+			self.stock.min_chart[sCode] = self.stock.get_pd()
+			self.loop.sem_buy[sCode] = threading.Semaphore(1)
+			self.loop.sem_sell[sCode] = threading.Semaphore(1)
 		
 		self.loop.jongmok.exit()
 	
@@ -285,23 +286,20 @@ class Kiwoom(QAxWidget):
 	
 	def real_jusikchegul(self, sCode, sRealType, sRealData):
 		print(sCode)
-		time = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['체결시간'])[:4]  # 시 분
+		ex_time = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['체결시간'])[:4]  # 시 분 ex_time = Execution Time
 		price = int(self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['현재가'])[1:])
-		now = datetime.timedelta(hours=int(time[:2]), minutes=int(time[-2:]))
-		# if time not in self.stock.min_chart[sCode].index:
-		# 	self.stock.min_chart[sCode].loc[time] = self.stock.get_pd_new_iterrow(now_price=price)
 		
 		if len(self.stock.min_chart[sCode].index) >= 30: # nan이 아닌게 30개 이상
-			self.stock.min_chart[sCode].loc[now, '현재가'] = price
-			self.stock.min_chart[sCode].loc[now, '5이평'] = self.stock.min_chart[sCode]['현재가'][-5:].mean()
-			self.stock.min_chart[sCode].loc[now, '10이평'] = self.stock.min_chart[sCode]['현재가'][-10:].mean()
-			self.stock.min_chart[sCode].loc[now, '20이평'] = self.stock.min_chart[sCode]['현재가'][-20:].mean()
-			self.stock.min_chart[sCode].loc[now, '30이평'] = self.stock.min_chart[sCode]['현재가'][-30:].mean()
+			self.stock.min_chart[sCode].loc[ex_time, '현재가'] = price
+			self.stock.min_chart[sCode].loc[ex_time, '5이평'] = self.stock.min_chart[sCode]['현재가'][-5:].mean()
+			self.stock.min_chart[sCode].loc[ex_time, '10이평'] = self.stock.min_chart[sCode]['현재가'][-10:].mean()
+			self.stock.min_chart[sCode].loc[ex_time, '20이평'] = self.stock.min_chart[sCode]['현재가'][-20:].mean()
+			self.stock.min_chart[sCode].loc[ex_time, '30이평'] = self.stock.min_chart[sCode]['현재가'][-30:].mean()
 			
 			if sCode in self.account.stock_dict:
-				self.have_to_sell(sCode, now, price)
+				self.have_to_sell(sCode, ex_time, price)
 			else:
-				self.have_to_buy(sCode, now, price)
+				self.have_to_buy(sCode, ex_time, price)
 	
 	# ------------------ 기본 사용자 함수 ------------------
 	def get_account_info(self):
@@ -363,10 +361,10 @@ class Kiwoom(QAxWidget):
 		# TODO 함수 만들기
 	
 	# ------------------ 매수 / 매도 조건 함수 ------------------
-	def have_to_sell(self, sCode, now, price):
-		if self.stock.min_chart[sCode].loc[now - datetime.timedelta(minutes=1), '20이평'] > self.stock.min_chart[sCode].loc[now - datetime.timedelta(minutes=1), '5이평']:
-			self.sell_stock(sCode, now)
+	def have_to_sell(self, sCode, ex_time, price):
+		if self.stock.min_chart[sCode].loc[Time.get_pasttime(ex_time, minutes=1), '20이평'] > self.stock.min_chart[sCode].loc[Time.get_pasttime(ex_time, minutes=1), '5이평']:
+			self.sell_stock(sCode, ex_time)
 	
-	def have_to_buy(self, sCode, now, price):
-		if self.stock.min_chart[sCode].loc[now, '5이평'] > self.stock.min_chart[sCode].loc[now, '20이평']:
-			self.buy_stock(sCode, 10, now, price)
+	def have_to_buy(self, sCode, ex_time, price):
+		if self.stock.min_chart[sCode].loc[ex_time, '5이평'] > self.stock.min_chart[sCode].loc[ex_time, '20이평']:
+			self.buy_stock(sCode, 10, ex_time, price)
