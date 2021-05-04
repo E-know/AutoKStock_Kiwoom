@@ -7,7 +7,9 @@ import datetime
 
 class Stock:
 	def __init__(self):
-		self.jongmok = {}
+		self.jongmok = []
+		self.new_code = []
+		self.old_code = []
 		self.min_chart = {}
 	
 	# 현재가 | 5분 이동평균선 | 10분 이동평균선 | 20분 이동평균선 | 30분 이동평균선 | 매수 시도 | 매도 시도 |
