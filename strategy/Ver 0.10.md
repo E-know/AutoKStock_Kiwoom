@@ -27,6 +27,6 @@
 ## 운영 기간
 2021-03-31 ~ 2021-04-05
 ## 이전 버전
-[Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.00.md)  
-[Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.01.md)
+[Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.00.md)  
+[Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.01.md)
 
