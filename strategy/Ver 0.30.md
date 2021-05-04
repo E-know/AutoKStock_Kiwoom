@@ -1,4 +1,4 @@
-# 매수 매도 전략 Ver 0.20
+# 매수 매도 전략 Ver 0.30
 ![현대사료(016790)_분_20210503160016](https://user-images.githubusercontent.com/55151796/116849514-dd37f280-ac29-11eb-881a-d946a5deaad1.jpg)
 
 ## 개선 사항  
