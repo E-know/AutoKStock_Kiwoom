@@ -167,7 +167,9 @@ class Kiwoom(QAxWidget):
 			if status == 0:
 				self.log.debug("[매수]" + sCode + "주문이 접수되었습니다.")
 				self.account.stock_dict[sCode] = {}
-				self.stock.min_chart[sCode].loc[ex_time, '매수'] = True
+				for i in range(3):
+					self.stock.min_chart[sCode].loc[Time.get_modified_time(ex_time,minutes=i), '매수'] = True # 매수로 인한 3분동안 매수/매도 금지
+					
 			elif status == -308:
 				self.log.debug("%s 매수 중에 에러가 발생했습니다. 사유 : 1초에 5회이상 매도/수 시도" % sCode)
 			else:
@@ -382,11 +384,11 @@ class Kiwoom(QAxWidget):
 	
 	# ------------------ 매수 / 매도 조건 함수 ------------------
 	def have_to_sell(self, sCode, ex_time, price):
-		if self.stock.min_chart[sCode].loc[Time.get_pasttime(time=ex_time, minutes=2), '5이평'] > self.stock.min_chart[sCode].loc[Time.get_pasttime(time=ex_time, minutes=1), '5이평'] or \
+		if self.stock.min_chart[sCode].loc[Time.get_modified_time(time=ex_time, minutes=-2), '5이평'] > self.stock.min_chart[sCode].loc[Time.get_modified_time(time=ex_time, minutes=-1), '5이평'] or \
 				self.stock.min_chart[sCode].loc[ex_time, '현재가'] < self.stock.min_chart[sCode].loc[ex_time, '20이평']:
 			self.sell_stock(sCode, ex_time)
 	
 	def have_to_buy(self, sCode, ex_time, price):
 		if self.stock.min_chart[sCode].loc[ex_time, '5이평'] > self.stock.min_chart[sCode].loc[ex_time, '20이평'] and \
-				self.stock.min_chart[sCode].loc[Time.get_pasttime(ex_time, minutes=1), '20이평'] > self.stock.min_chart[sCode].loc[Time.get_pasttime(ex_time, minutes=1), '5이평']:
+				self.stock.min_chart[sCode].loc[Time.get_modified_time(ex_time, minutes=-1), '20이평'] > self.stock.min_chart[sCode].loc[Time.get_modified_time(ex_time, minutes=-1), '5이평']:
 			self.buy_stock(sCode, 10, ex_time, price)
