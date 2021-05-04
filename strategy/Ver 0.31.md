@@ -19,4 +19,4 @@
 [Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.01.md)  
 [Ver 0.10](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.10.md)  
 [Ver 0.20](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.20.md)  
-[Ver 0.30](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.30.md)  
+[Ver 0.30](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.30.md)  
