@@ -17,8 +17,8 @@
 [Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.01.md)  
 [Ver 0.10](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.10.md)  
 [Ver 0.20](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.20.md)  
-[Ver 0.30](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.30.md)  
-[Ver 0.31](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.31.md)  
+[Ver 0.30](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.30.md)  
+[Ver 0.31](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.31.md)  
 
 ## 개발일지
 [2021-03-24](https://slowsure.tistory.com/116)  
