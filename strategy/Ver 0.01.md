@@ -25,4 +25,4 @@
 2021-03-17 ~ 2021-03-30
 
 ## 이전 버전
-[Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/ver0.00.md)
+[Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.00.md)
