@@ -1,18 +1,27 @@
 # AutoKStock
-키움증권의 Open API를 이용한 주식 자동매매 프로그램
+키움증권의 Open API를 이용한 자동 기술적 매매 프로그램
 
 **Auto** + **K**orean + **Stock** = AutoKStock
 
-# Main Language & Framework
-<img src="https://me2.do/5rsMUeTf" width="50%">
+# Main Language
+Python 3.8
 
-## 사용 API
-<img src="https://user-images.githubusercontent.com/55151796/111038713-cd8fff00-846d-11eb-9b82-9d84733a5dcf.png" width="50%">
+## API & Library
+키움증권 Open API
+Telegram Bot API
+Pandas
 
-## Result notification messenge
-<img src="https://user-images.githubusercontent.com/55151796/111448687-04a62f00-8752-11eb-9b38-dc459cd4ceff.png" width="20%">
 
 ## 매수/매도 전략 Strategy 
+### 매수/매도 전략
+![현대사료(016790)_분_20210503160016](https://user-images.githubusercontent.com/55151796/116849514-dd37f280-ac29-11eb-881a-d946a5deaad1.jpg)
+매수 기준 : 5분 이동평균선이 20분 이동평균선을 뚫고 위로 올라갈 때 1매수호가로 지정값 매수 및 3분간 매도 금지
+매도 기준 : 1분전에 5분 이동평균선이 20분이동평균선 밑으로 내려 갔을 때 매도 or 현재가가 20분 이동평균선으로 밑으로 내려갈 때 매도
+(이동평균선 기준 : 실시간 값 + 과거 N분의 값 평균)
+
+조건 : 매수/매도가 체결된 시간에는 동일 종목에 한하여 매수/매도 금지
+
+### 매수/매도 전략 변경 이력
 [Ver 0.00](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.00.md)  
 [Ver 0.01](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.01.md)  
 [Ver 0.10](https://github.com/E-know/AutoKStock/blob/main/strategy/Ver%200.10.md)  
