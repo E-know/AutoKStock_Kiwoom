@@ -3,13 +3,14 @@
 
 **Auto** + **K**orean + **Stock** = AutoKStock
 
-# Main Language
-Python 3.8
+# Main Language & API
+### Language
+- Python 3.8
 
-## API & Library
-키움증권 Open API
-Telegram Bot API
-Pandas
+### API & Library
+- 키움증권 Open API  
+- Telegram Bot API  
+- Pandas
 
 
 # 매수/매도 전략 Strategy 
